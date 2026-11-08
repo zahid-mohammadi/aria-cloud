@@ -338,7 +338,7 @@ Return ONLY a valid JSON object with the following structure:
   const compiledHtml = compileUniversalSiteHtml(updatedSchema);
 
   // 5. Deploy to S3 and CloudFront cache invalidation
-  const s3Key = `tenants/${input.tenantId}/public/index.html`;
+  const s3Key = `tenants/${updatedSchema.subdomainSlug}/index.html`;
   const s3Path = currentS3Path || `s3://${ASSETS_BUCKET}/${s3Key}`;
   let invalidationId: string | undefined;
 
@@ -362,7 +362,7 @@ Return ONLY a valid JSON object with the following structure:
               CallerReference: `site-update-${Date.now()}`,
               Paths: {
                 Quantity: 1,
-                Items: [`/tenants/${input.tenantId}/public/*`],
+                Items: [`/tenants/${updatedSchema.subdomainSlug}/*`],
               },
             },
           })

@@ -16,11 +16,12 @@ import {
 import { withTenantContext } from '@aria-cloud/database';
 import { UniversalSiteSchema, IndustryType } from './types';
 import { compileUniversalSiteHtml } from './compiler';
+import { claimSlug } from './ownership';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const PRIMARY_REGION = process.env.SES_REGION || 'me-central-1';
 const BEDROCK_REGION = process.env.BEDROCK_REGION || 'us-east-1';
-const ASSETS_BUCKET = process.env.PUBLIC_ASSETS_BUCKET || 'ariacloud-tenants';
+const ASSETS_BUCKET = process.env.MERCHANT_SITES_BUCKET || 'ariacloud-merchant-sites-production';
 const CLOUDFRONT_DIST_ID = process.env.CLOUDFRONT_DISTRIBUTION_ID || '';
 
 const bedrock = new BedrockRuntimeClient({ region: BEDROCK_REGION });
@@ -68,11 +69,15 @@ export async function generateUniversalSite(
     input.customDomain
   );
 
-  // Step 2: Pass JSON schema into the HTML compiler that outputs a single static HTML file
+  // Step 2: Claim the subdomain, then compile. The S3 key must match the
+  // CloudFront function's /tenants/<subdomain>/... rewrite, otherwise the
+  // published site 404s even though the upload succeeded.
+  await claimSlug(input.tenantId, cleanSlug, ROOT_DOMAIN);
+
   const compiledHtml = compileUniversalSiteHtml(schema);
 
   // Step 3: Deploy compiled bundle to S3 and issue CloudFront cache invalidation
-  const s3Key = `tenants/${input.tenantId}/public/index.html`;
+  const s3Key = `tenants/${cleanSlug}/index.html`;
   const s3Path = `s3://${ASSETS_BUCKET}/${s3Key}`;
   let invalidationId: string | undefined;
 
@@ -96,7 +101,7 @@ export async function generateUniversalSite(
               CallerReference: `site-gen-${Date.now()}`,
               Paths: {
                 Quantity: 1,
-                Items: [`/tenants/${input.tenantId}/public/*`],
+                Items: [`/tenants/${cleanSlug}/*`],
               },
             },
           })

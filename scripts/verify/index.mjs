@@ -14,6 +14,7 @@ const REQUIRED_BUILDS = [
   'packages/auth/dist/index.js',
   'services/api-gateway/dist/index.js',
   'services/billing/dist/index.js',
+  'services/site-builder/dist/index.js',
 ];
 
 for (const rel of REQUIRED_BUILDS) {
@@ -29,6 +30,7 @@ const schema = await import('./schema.mjs');
 const auth = await import('./auth.mjs');
 const gateway = await import('./gateway.mjs');
 const payments = await import('./payments.mjs');
+const storefront = await import('./storefront.mjs');
 
 console.log('AriaCloud verification — PostgreSQL 16 (PGlite)');
 
@@ -37,6 +39,7 @@ failures += await schema.run();
 failures += await auth.run();
 failures += await gateway.run();
 failures += await payments.run();
+failures += await storefront.run();
 
 console.log('\n' + '─'.repeat(64));
 if (failures === 0) {

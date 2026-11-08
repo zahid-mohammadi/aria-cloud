@@ -22,12 +22,14 @@ import {
   CreateInvalidationCommand,
 } from '@aws-sdk/client-cloudfront';
 import { withTenantContext } from '@aria-cloud/database';
+import { claimSlug } from './ownership';
 
 // Re-export Universal Site Builder Engine and Conversational Update Engine
 export * from './types';
 export * from './compiler';
 export * from './generator';
 export * from './updater';
+export * from './ownership';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const PRIMARY_REGION = process.env.SES_REGION || 'me-central-1';
@@ -451,22 +453,48 @@ function buildDeterministicBlueprint(
  * responsive HTML5 storefront with live Dari/Pashto/English switching,
  * interactive shopping cart, HesabPay modal, and WhatsApp order dispatch.
  */
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** JSON that is safe to inline inside a <script> element. */
+function jsJson(value: unknown): string {
+  return JSON.stringify(value ?? null)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+/** Only http(s) or same-origin paths may reach an href/src. */
+function safeUrl(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('/')) return raw;
+  return '';
+}
+
 export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
   const palette = THEME_PALETTES[blueprint.theme] || THEME_PALETTES.emerald_bazaar;
   const initialLang = blueprint.primaryLocale === 'ps_AF' ? 'ps' : blueprint.primaryLocale === 'en' ? 'en' : 'fa';
   const initialDir = initialLang === 'en' ? 'ltr' : 'rtl';
-  const serializedBlueprint = JSON.stringify(blueprint);
+  const serializedBlueprint = jsJson(blueprint);
 
   return `<!DOCTYPE html>
 <html lang="${initialLang}" dir="${initialDir}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${blueprint.storeName.fa} | ${blueprint.storeName.en}</title>
-  <meta name="description" content="${blueprint.tagline.fa} - Powered by AriaCloud (${ROOT_DOMAIN})" />
-  <meta property="og:title" content="${blueprint.storeName.fa}" />
-  <meta property="og:description" content="${blueprint.tagline.fa}" />
-  <meta property="og:url" content="https://${blueprint.fqdn}" />
+  <title>${esc(blueprint.storeName.fa)} | ${esc(blueprint.storeName.en)}</title>
+  <meta name="description" content="${esc(blueprint.tagline.fa)} - Powered by AriaCloud (${ROOT_DOMAIN})" />
+  <meta property="og:title" content="${esc(blueprint.storeName.fa)}" />
+  <meta property="og:description" content="${esc(blueprint.tagline.fa)}" />
+  <meta property="og:url" content="https://${esc(blueprint.fqdn)}" />
   <style>
     :root {
       --bg: ${palette.bg};
@@ -578,7 +606,7 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
     <div class="container nav">
       <div class="brand">
         <span class="brand-dot"></span>
-        <span id="store-name">${blueprint.storeName[initialLang]}</span>
+        <span id="store-name">${esc(blueprint.storeName[initialLang])}</span>
       </div>
       <div class="lang-switch">
         <button class="lang-btn ${initialLang === 'fa' ? 'active' : ''}" onclick="setLang('fa')">دری</button>
@@ -591,12 +619,12 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
   <main class="container">
     <section class="hero">
       <div class="domain-pill">
-        <span>⚡ https://${blueprint.fqdn}</span>
+        <span>⚡ https://${esc(blueprint.fqdn)}</span>
         <span>•</span>
-        <span>HesabPay ID: ${blueprint.hesabPayMerchantId}</span>
+        <span>HesabPay ID: ${esc(blueprint.hesabPayMerchantId)}</span>
       </div>
-      <h1 id="hero-tagline">${blueprint.tagline[initialLang]}</h1>
-      <p id="hero-desc">${blueprint.heroDescription[initialLang]}</p>
+      <h1 id="hero-tagline">${esc(blueprint.tagline[initialLang])}</h1>
+      <p id="hero-desc">${esc(blueprint.heroDescription[initialLang])}</p>
       <div class="badges" id="trust-badges"></div>
     </section>
 
@@ -607,7 +635,7 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
     <div>
       <strong id="cart-summary">سبد خرید: ۰ قلم (0 AFN)</strong>
       <div style="font-size: 0.76rem; color: var(--muted);">
-        ارسال در: ${blueprint.cityCoverage.join(' ، ')}
+        ارسال در: ${esc(blueprint.cityCoverage.join(' ، '))}
       </div>
     </div>
     <div class="cart-actions">
@@ -626,6 +654,16 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
     const BLUEPRINT = ${serializedBlueprint};
     let currentLang = '${initialLang}';
     const cart = {};
+
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+    function safeUrl(v) {
+      const raw = String(v == null ? '' : v).trim();
+      return /^https?:\/\//i.test(raw) || raw.charAt(0) === '/' ? raw : '';
+    }
 
     function setLang(lang) {
       currentLang = lang;
@@ -695,7 +733,7 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
 
       const badgesEl = document.getElementById('trust-badges');
       badgesEl.innerHTML = (BLUEPRINT.trustBadges[currentLang] || [])
-        .map(b => \`<span class="badge">✓ \${b}</span>\`).join('');
+        .map(b => \`<span class="badge">✓ \${esc(b)}</span>\`).join('');
 
       const addLabel = currentLang === 'en' ? '+ Add to Cart' : currentLang === 'ps' ? '+ سله ته زیات کړئ' : '+ افزودن به سبد';
       const gridEl = document.getElementById('product-grid');
@@ -703,13 +741,13 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
         const title = p['title_' + currentLang] || p.title_fa;
         return \`
           <article class="card">
-            <img class="card-img" src="\${p.image_url}" alt="\${title}" loading="lazy" />
+            <img class="card-img" src="\${esc(safeUrl(p.image_url))}" alt="\${esc(title)}" loading="lazy" />
             <div class="card-body">
-              <span class="card-tag">\${p.badge || p.category}</span>
-              <h3 class="card-title">\${title}</h3>
+              <span class="card-tag">\${esc(p.badge || p.category)}</span>
+              <h3 class="card-title">\${esc(title)}</h3>
               <div class="card-footer">
                 <span class="price">\${p.price_afn.toLocaleString()} AFN</span>
-                <button class="btn" onclick="addToCart('\${p.id}')">\${addLabel}</button>
+                <button class="btn" data-add="\${esc(p.id)}">\${addLabel}</button>
               </div>
             </div>
           </article>
@@ -717,6 +755,12 @@ export function compileStorefrontHtml(blueprint: StorefrontBlueprint): string {
       }).join('');
       updateCartBar();
     }
+
+    // Delegated so product ids never appear inside an onclick attribute.
+    document.getElementById('product-grid').addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-add]');
+      if (btn) addToCart(btn.getAttribute('data-add'));
+    });
 
     renderStore();
   </script>
@@ -733,7 +777,11 @@ export async function buildAndPublishStorefront(
   // 1. Generate Trilingual Storefront Blueprint
   const blueprint = await generateStorefrontBlueprint(input);
 
-  // 2. Compile Responsive RTL/LTR HTML5 Storefront
+  // 2. Claim the subdomain before touching S3. Publishing keys off the slug,
+  //    so this is what stops one merchant overwriting another's storefront.
+  await claimSlug(input.tenantId, blueprint.subdomainSlug, ROOT_DOMAIN);
+
+  // 3. Compile Responsive RTL/LTR HTML5 Storefront
   const compiledHtml = compileStorefrontHtml(blueprint);
   const s3Prefix = `tenants/${blueprint.subdomainSlug}`;
   const liveUrl = `https://${blueprint.fqdn}`;

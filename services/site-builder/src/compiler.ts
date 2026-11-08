@@ -28,9 +28,14 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
     ],
   });
 
+  // Safe to embed inside a <script type="application/json"> element:
+  // escaping '<' prevents a literal </script> from terminating the block.
   const schemaJsonEscaped = JSON.stringify(schema)
     .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e');
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 
   const themeColors: Record<
     string,
@@ -132,10 +137,13 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
   </style>
 </head>
 <body 
-  x-data='ariaSite(${schemaJsonEscaped})'
+  x-data="ariaSite()"
   :dir="dir"
   class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col"
 >
+  <!-- Schema is data, not an attribute: no quoting can break out of it. -->
+  <script type="application/json" id="aria-schema">${schemaJsonEscaped}</script>
+
   <!-- TOP UTILITY & LANGUAGE BAR -->
   <header class="bg-brand-700 text-white text-xs sm:text-sm py-2 px-4 shadow-sm">
     <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
@@ -575,7 +583,11 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
   </footer>
 
   <script>
-    function ariaSite(initialSchema) {
+    function ariaSite() {
+      // Read the schema from a JSON data block rather than an HTML attribute,
+      // so an apostrophe or quote in generated copy cannot break the page.
+      var el = document.getElementById('aria-schema');
+      var initialSchema = el && el.textContent ? JSON.parse(el.textContent) : {};
       return {
         schema: initialSchema,
         currentLang: 'fa',
