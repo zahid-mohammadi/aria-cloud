@@ -8,10 +8,18 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Dedicated least-privilege application role (does NOT have BYPASSRLS)
+-- Managed Postgres (Supabase, RDS, etc.) may not allow CREATE ROLE for the
+-- connecting user. That is fine: RLS below is FORCEd, so it applies to the
+-- connecting role too. We only skip role creation rather than failing the
+-- whole migration.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'aria_app_user') THEN
-        CREATE ROLE aria_app_user NOLOGIN;
+        BEGIN
+            CREATE ROLE aria_app_user NOLOGIN;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'aria_app_user not created (insufficient privilege); RLS still applies to the connecting role.';
+        END;
     END IF;
 END
 $$;
