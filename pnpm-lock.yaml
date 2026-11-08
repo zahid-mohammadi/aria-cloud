@@ -53,6 +53,9 @@ importers:
 
   apps/web-portal:
     dependencies:
+      '@aria-cloud/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@aria-cloud/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -90,6 +93,25 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  packages/auth:
+    dependencies:
+      '@aria-cloud/database':
+        specifier: workspace:*
+        version: link:../database
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.23.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3

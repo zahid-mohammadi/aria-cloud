@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSession, unauthorized } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) return unauthorized();
+    const tenantId = session.tenantId;
     const body = await req.json();
     const {
       text = '',
       voiceId = 'aria-walid-kabul',
       modelId = 'aria-voice-flash-v2.5',
       locale = 'da',
-      tenantId = '9b2f4e10-8a7c-4d9a-b12e-6c4d8f201a99',
     } = body;
 
     const trimmed = String(text).trim();

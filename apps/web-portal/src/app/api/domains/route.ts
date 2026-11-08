@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSession, unauthorized } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) return unauthorized();
     const body = await req.json();
     const {
       action = 'provision_mailbox',

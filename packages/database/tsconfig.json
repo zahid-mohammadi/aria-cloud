@@ -4,11 +4,13 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "lib": ["ES2022"],
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": true
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"]
 }

@@ -9,7 +9,8 @@
     "services/*"
   ],
   "scripts": {
-    "build": "node scripts/audit-whitelabel.js && npm --prefix apps/web-portal run build",
+    "build": "pnpm --filter @aria-cloud/database build && pnpm --filter @aria-cloud/auth build && node scripts/audit-whitelabel.js && npm --prefix apps/web-portal run build",
+    "build:packages": "pnpm --filter @aria-cloud/database build && pnpm --filter @aria-cloud/auth build",
     "audit:whitelabel": "node scripts/audit-whitelabel.js",
     "dev:portal": "npm --prefix apps/web-portal run dev",
     "build:portal": "npm --prefix apps/web-portal run build",
@@ -17,7 +18,8 @@
     "dev:console": "npm --prefix apps/control-plane run dev",
     "build:console": "npm --prefix apps/control-plane run build",
     "typecheck": "npm --prefix apps/web-portal run typecheck",
-    "db:migrate": "pnpm --filter @aria-cloud/database migrate"
+    "db:migrate": "pnpm --filter @aria-cloud/database migrate",
+    "user:create": "pnpm --filter @aria-cloud/auth create-user"
   },
   "engines": {
     "node": ">=20.0.0"
