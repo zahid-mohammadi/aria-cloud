@@ -498,155 +498,6 @@
   100% { height: 100%; }
 }
 
-/* Hero Right Column: Interactive Console & Architecture Widget */
-.console-widget-card {
-  background-color: #0b1120;
-  border: 1px solid var(--color-enterprise-border);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-}
-
-.console-widget-header {
-  background-color: #080d19;
-  border-bottom: 1px solid var(--color-enterprise-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-inline: 1rem;
-  padding-block: 0.625rem;
-}
-
-.console-widget-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.console-tab-btn {
-  background: transparent;
-  border: none;
-  color: var(--color-enterprise-text-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding-inline: 0.75rem;
-  padding-block: 0.375rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.console-tab-btn:hover {
-  color: #ffffff;
-}
-
-.console-tab-btn.active {
-  background-color: var(--color-enterprise-card);
-  color: var(--color-enterprise-gold);
-  border-bottom: 2px solid var(--color-enterprise-gold);
-}
-
-.console-window-dots {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.window-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-.window-dot-red { background-color: #ef4444; }
-.window-dot-yellow { background-color: #f59e0b; }
-.window-dot-green { background-color: #10b981; }
-
-.console-widget-body {
-  padding: 1.25rem;
-  min-height: 340px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Topology Interactive Flow Diagram */
-.topology-flow-box {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-}
-
-.topology-node {
-  background-color: var(--color-enterprise-card);
-  border: 1px solid var(--color-enterprise-border);
-  border-radius: 6px;
-  padding: 0.875rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.topology-node-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.topology-node-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background-color: rgba(37, 99, 235, 0.15);
-  border: 1px solid rgba(37, 99, 235, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #60a5fa;
-}
-
-.topology-node-title {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.topology-node-metric {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  padding-inline: 0.5rem;
-  padding-block: 0.125rem;
-  border-radius: 4px;
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.topology-arrow {
-  text-align: center;
-  color: var(--color-enterprise-gold);
-  font-size: 0.75rem;
-  line-height: 1;
-}
-
-/* Live CLI Terminal */
-.terminal-code-block {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
-  line-height: 1.7;
-  color: #38bdf8;
-  margin: 0;
-  white-space: pre-wrap;
-  flex-grow: 1;
-}
-
-.terminal-cmd { color: #f1f5f9; font-weight: 700; }
-.terminal-comment { color: #64748b; }
-.terminal-success { color: #10b981; }
-.terminal-warning { color: #f59e0b; }
-
 /* Cloud Services Catalog (Enterprise Style Tabbed Matrix) */
 .catalog-tabs-bar {
   display: flex;
@@ -1447,19 +1298,6 @@
   z-index: 2;
 }
 
-/* --- 3D tilt on the console showcase --- */
-.console-widget-card {
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.4s ease;
-  box-shadow: 0 28px 70px rgba(2, 6, 23, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-}
-
-.console-widget-card:hover {
-  transform: perspective(1100px) rotateX(2deg) rotateY(-3deg) translateY(-5px);
-  box-shadow: 0 42px 90px rgba(2, 6, 23, 0.72), 0 0 0 1px rgba(255, 153, 0, 0.14) inset;
-}
-
 /* --- Global page atmosphere: aurora + dot grid behind every section --- */
 .public-root {
   position: relative;
@@ -1502,24 +1340,13 @@
 /* --- Respect reduced motion --- */
 @media (prefers-reduced-motion: reduce) {
   .hero-viz-svg,
-  .console-widget-card {
+  .storefront-mockup {
     animation: none;
     transition: none;
   }
-  .console-widget-card:hover {
+  .storefront-mockup:hover {
     transform: none;
   }
-}
-
-/* The hero console/terminal is a deliberate dark asset on the light page.
-   Re-scoping the variables here keeps every descendant dark regardless of the
-   page theme. */
-.console-widget-card {
-  --color-enterprise-card: #16202f;
-  --color-enterprise-card-hover: #1d2a3d;
-  --color-enterprise-border: #2a3649;
-  --color-enterprise-text-muted: #94a3b8;
-  --color-enterprise-text-main: #f1f5f9;
 }
 
 /* Mission statement (replaces the removed allocation chart) */

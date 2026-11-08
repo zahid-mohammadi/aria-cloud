@@ -104,5 +104,27 @@ export async function run() {
   );
   check('exactly one domain row exists', count.rows[0].n === 1, `rows=${count.rows[0].n}`);
 
+  // ------------------------------------------------------ LLM schema sanitization
+  const baseline = site.createSectorBlueprint('clinic', 'xss-clinic', '', undefined);
+
+  const nullSafe = site.sanitizeSiteSchema(null, baseline);
+  check('sanitize: null input returns baseline', nullSafe.header.businessName.fa === baseline.header.businessName.fa);
+
+  const malformed = site.sanitizeSiteSchema(
+    { header: { businessName: 'Plain String Co' }, theme: 'hotpink', hero: null, whatsappCta: {} },
+    baseline
+  );
+  check('sanitize: string businessName coerced to all locales',
+    malformed.header.businessName.fa === 'Plain String Co' && malformed.header.businessName.ps === 'Plain String Co' && malformed.header.businessName.en === 'Plain String Co');
+  check('sanitize: invalid theme rejected', malformed.theme === baseline.theme);
+  check('sanitize: missing hero falls back to baseline', malformed.hero.headline.fa === baseline.hero.headline.fa);
+  check('sanitize: clinic module preserved from baseline', Array.isArray(malformed.clinic?.doctors) && malformed.clinic.doctors.length >= 2);
+
+  const partial = site.sanitizeSiteSchema(
+    { header: { businessName: { fa: 'کابل', ps: 'کابل', en: 'Kabul' } } },
+    baseline
+  );
+  check('sanitize: valid localized override applied', partial.header.businessName.en === 'Kabul' && partial.header.businessName.fa === 'کابل');
+
   return failures();
 }

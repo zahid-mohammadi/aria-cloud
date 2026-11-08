@@ -14,7 +14,7 @@ import {
   CreateInvalidationCommand,
 } from '@aws-sdk/client-cloudfront';
 import { withTenantContext } from '@aria-cloud/database';
-import { UniversalSiteSchema, IndustryType } from './types';
+import { UniversalSiteSchema, IndustryType, LocalizedString } from './types';
 import { compileUniversalSiteHtml } from './compiler';
 import { claimSlug } from './ownership';
 
@@ -160,6 +160,74 @@ export async function generateUniversalSite(
   };
 }
 
+function coerceLocalized(value: unknown, fallback: LocalizedString): LocalizedString {
+  if (value && typeof value === 'object') {
+    const v = value as Record<string, unknown>;
+    return {
+      fa: typeof v.fa === 'string' ? v.fa : fallback.fa,
+      ps: typeof v.ps === 'string' ? v.ps : fallback.ps,
+      en: typeof v.en === 'string' ? v.en : fallback.en,
+    };
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return { fa: value, ps: value, en: value };
+  }
+  return fallback;
+}
+
+function coerceString(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+}
+
+const THEMES = ['emerald', 'lapis', 'saffron', 'slate', 'teal', 'crimson'];
+
+/**
+ * Merges untrusted LLM output over a deterministic baseline so the compiler
+ * never receives a malformed schema. Only plain text + localized fields are
+ * adopted from the model; structure (hours, PWA, sector modules) stays
+ * deterministic, so a bad or missing field degrades to a valid site instead of
+ * throwing at compile time.
+ */
+export function sanitizeSiteSchema(
+  parsed: unknown,
+  baseline: UniversalSiteSchema
+): UniversalSiteSchema {
+  if (!parsed || typeof parsed !== 'object') return baseline;
+  const p = parsed as Record<string, any>;
+  const h = p.header && typeof p.header === 'object' ? p.header : {};
+  const hero = p.hero && typeof p.hero === 'object' ? p.hero : {};
+  const wa = p.whatsappCta && typeof p.whatsappCta === 'object' ? p.whatsappCta : {};
+
+  const theme = THEMES.includes(p.theme) ? (p.theme as UniversalSiteSchema['theme']) : baseline.theme;
+
+  return {
+    ...baseline,
+    theme,
+    header: {
+      ...baseline.header,
+      businessName: coerceLocalized(h.businessName, baseline.header.businessName),
+      tagline: coerceLocalized(h.tagline, baseline.header.tagline),
+      phone: coerceString(h.phone, baseline.header.phone),
+      whatsappPhone: coerceString(h.whatsappPhone, baseline.header.whatsappPhone),
+      email: coerceString(h.email, baseline.header.email),
+      address: coerceLocalized(h.address, baseline.header.address),
+      city: coerceString(h.city, baseline.header.city),
+    },
+    hero: {
+      ...baseline.hero,
+      headline: coerceLocalized(hero.headline, baseline.hero.headline),
+      subheadline: coerceLocalized(hero.subheadline, baseline.hero.subheadline),
+      primaryCtaText: coerceLocalized(hero.primaryCtaText, baseline.hero.primaryCtaText),
+      primaryCtaIntent: coerceString(hero.primaryCtaIntent, baseline.hero.primaryCtaIntent),
+    },
+    whatsappCta: {
+      ...baseline.whatsappCta,
+      phoneNumber: coerceString(wa.phoneNumber, baseline.whatsappCta.phoneNumber),
+      prefilledMessage: coerceLocalized(wa.prefilledMessage, baseline.whatsappCta.prefilledMessage),
+    },
+  };
+}
+
 /**
  * Invokes Bedrock Nova Micro / Llama 3.1 or constructs domain-accurate fallback blueprints.
  */
@@ -202,14 +270,20 @@ Respond with JSON only, no markdown backticks.`;
       const rawJson = parsed.output?.message?.content?.[0]?.text || text;
       const jsonMatch = rawJson.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const generated = JSON.parse(jsonMatch[0]) as UniversalSiteSchema;
-        generated.subdomainSlug = subdomainSlug;
-        generated.industry = industry;
-        generated.version = 1;
-        generated.customDomain = customDomain;
-        generated.generatedAt = new Date().toISOString();
-        generated.lastUpdatedAt = new Date().toISOString();
-        return generated;
+        try {
+          const generated = JSON.parse(jsonMatch[0]);
+          const baseline = createSectorBlueprint(industry, subdomainSlug, prompt, customDomain);
+          const safe = sanitizeSiteSchema(generated, baseline);
+          safe.subdomainSlug = subdomainSlug;
+          safe.industry = industry;
+          safe.version = 1;
+          safe.customDomain = customDomain;
+          safe.generatedAt = new Date().toISOString();
+          safe.lastUpdatedAt = new Date().toISOString();
+          return safe;
+        } catch {
+          // Malformed JSON schema — fall through to the deterministic blueprint.
+        }
       }
     } catch (bedrockErr) {
       console.warn('Bedrock model invocation failed, using Afghan sector template:', bedrockErr);
