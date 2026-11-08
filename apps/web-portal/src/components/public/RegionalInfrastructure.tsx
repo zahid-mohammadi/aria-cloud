@@ -12,31 +12,31 @@ export function RegionalInfrastructure({ t }: RegionalInfrastructureProps) {
     {
       name: t.infrastructure.primaryRegionName,
       latency: t.infrastructure.primaryRegionLatency,
-      type: 'Backbone Hub',
+      type: 'Primary region',
       status: 'success',
     },
     {
       name: t.infrastructure.kabulEdgeName,
       latency: t.infrastructure.kabulEdgeLatency,
-      type: 'Fiber POP',
+      type: 'Delivery network',
       status: 'success',
     },
     {
       name: t.infrastructure.heratEdgeName,
       latency: t.infrastructure.heratEdgeLatency,
-      type: 'Edge Gateway',
+      type: 'Database',
       status: 'success',
     },
     {
       name: t.infrastructure.mazarEdgeName,
       latency: t.infrastructure.mazarEdgeLatency,
-      type: 'Edge POP',
+      type: 'Storage',
       status: 'success',
     },
     {
       name: t.infrastructure.kandaharEdgeName,
       latency: t.infrastructure.kandaharEdgeLatency,
-      type: 'Edge POP',
+      type: 'Email',
       status: 'success',
     },
   ];
@@ -61,7 +61,7 @@ export function RegionalInfrastructure({ t }: RegionalInfrastructureProps) {
           <div className="infra-nodes-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-enterprise-navy)' }}>
-                Active Regional POPs & Gateways
+                Platform architecture
               </span>
               <span className="status-dot-active" aria-hidden="true" />
             </div>

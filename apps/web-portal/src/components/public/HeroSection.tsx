@@ -220,17 +220,17 @@ export function HeroSection({ t }: HeroSectionProps) {
                       <span className="topology-node-metric">PWA Edge Cache</span>
                     </div>
 
-                    <div className="topology-arrow">▼ 12ms Local Transit</div>
+                    <div className="topology-arrow">▼ Local transit</div>
 
                     <div className="topology-node">
                       <div className="topology-node-left">
                         <div className="topology-node-icon">⚡</div>
                         <span className="topology-node-title">{t.consolePreview.topology.edge}</span>
                       </div>
-                      <span className="topology-node-metric">KBL-Edge-1 Fiber</span>
+                      <span className="topology-node-metric">Global edge</span>
                     </div>
 
-                    <div className="topology-arrow">▼ 46ms Regional Backbone</div>
+                    <div className="topology-arrow">▼ Regional backbone</div>
 
                     <div className="topology-node">
                       <div className="topology-node-left">
@@ -273,8 +273,8 @@ export function HeroSection({ t }: HeroSectionProps) {
                       {'    '}--domain <span style={{ color: '#6ee7b7' }}>kabul-saffron.af</span> \{'\n'}
                       {'    '}--region <span style={{ color: '#f59e0b' }}>me-central-1</span> \{'\n'}
                       {'    '}--settlement <span style={{ color: '#f59e0b' }}>cash-otp</span>{'\n\n'}
-                      <span className="terminal-success">✔ Domain registered via MCIT (.af): OK (18ms)</span>{'\n'}
-                      <span className="terminal-success">✔ Edge PWA compiled & cached: OK (sub-1.2s)</span>{'\n'}
+                      <span className="terminal-success">✔ Domain registered: OK</span>{'\n'}
+                      <span className="terminal-success">✔ Edge PWA compiled & cached: OK</span>{'\n'}
                       <span className="terminal-success">✔ Cloud Mail SPF & DKIM keys injected: OK</span>{'\n'}
                       <span className="terminal-warning">⚡ OTP Handshake Code generated: 849-201</span>{'\n'}
                       <span className="terminal-cmd">🚀 Live URL: https://kabul-saffron.af</span>

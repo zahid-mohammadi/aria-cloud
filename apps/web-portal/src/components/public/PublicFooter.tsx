@@ -88,7 +88,7 @@ export function PublicFooter({ t }: PublicFooterProps) {
               <strong>Domestic Settlement Network</strong>
             </p>
             <p style={{ margin: 0 }}>
-              Official .af & .com registry gateway, HesabPay domestic settlement, and Aria Verified Doorstep Cash OTP Handshake.
+              HesabPay digital settlement and verified doorstep cash collection, denominated in Afghanis.
             </p>
           </div>
         </div>

@@ -22,7 +22,7 @@ export function PublicHeader({ t, currentLang, onLanguageChange }: PublicHeaderP
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span className="region-pill">
-              <span style={{ color: 'var(--color-enterprise-gold)' }}>●</span> me-central-1 (46ms)
+              <span style={{ color: 'var(--color-enterprise-gold)' }}>●</span> me-central-1
             </span>
             <span style={{ fontSize: '0.75rem', color: 'var(--color-enterprise-text-subtle)' }}>
               ariacloudservices.org
