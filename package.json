@@ -16,7 +16,8 @@
     "typecheck:portal": "npm --prefix apps/web-portal run typecheck",
     "dev:console": "npm --prefix apps/control-plane run dev",
     "build:console": "npm --prefix apps/control-plane run build",
-    "typecheck": "npm --prefix apps/web-portal run typecheck"
+    "typecheck": "npm --prefix apps/web-portal run typecheck",
+    "db:migrate": "pnpm --filter @aria-cloud/database migrate"
   },
   "engines": {
     "node": ">=20.0.0"

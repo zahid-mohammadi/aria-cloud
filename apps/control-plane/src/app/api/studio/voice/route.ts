@@ -33,6 +33,15 @@ export async function POST(req: NextRequest) {
       let remainingCredits = 0;
 
       await withTenantContext(tenantId, async (client) => {
+        // A tenant that has never been topped up has no wallet row yet, and a
+        // plain UPDATE would report "0 rows" — indistinguishable from
+        // insufficient funds. Create the row first so rowCount is meaningful.
+        await client.query(
+          `INSERT INTO ai_credit_wallets (tenant_id) VALUES ($1)
+           ON CONFLICT (tenant_id) DO NOTHING`,
+          [tenantId]
+        );
+
         const deductRes = await client.query<{ credit_balance: string }>(
           `UPDATE ai_credit_wallets
            SET credit_balance = credit_balance - $1,

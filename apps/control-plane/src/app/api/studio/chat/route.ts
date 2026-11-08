@@ -57,6 +57,14 @@ export async function POST(req: NextRequest) {
       const totalCredits = llmCredits + ttsCredits;
 
       await withTenantContext(tenantId, async (client) => {
+        // Ensure the wallet row exists before decrementing it, so that a
+        // missing row cannot silently swallow the update.
+        await client.query(
+          `INSERT INTO ai_credit_wallets (tenant_id) VALUES ($1)
+           ON CONFLICT (tenant_id) DO NOTHING`,
+          [tenantId]
+        );
+
         await client.query(
           `UPDATE ai_credit_wallets
            SET credit_balance = GREATEST(0, credit_balance - $1),

@@ -65,6 +65,11 @@ export async function POST(req: NextRequest) {
       if (process.env.DATABASE_URL) {
         await withTenantContext(tenantId, async (client) => {
           await client.query(
+            `INSERT INTO ai_credit_wallets (tenant_id) VALUES ($1)
+             ON CONFLICT (tenant_id) DO NOTHING`,
+            [tenantId]
+          );
+          await client.query(
             `UPDATE ai_credit_wallets
              SET credit_balance = credit_balance + $1,
                  updated_at = NOW()

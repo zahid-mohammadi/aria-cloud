@@ -103,33 +103,36 @@ export interface CustomAppDeploymentRow {
  */
 export async function getTenantOverview(tenantId: string): Promise<TenantOverview | null> {
   return withTenantContext(tenantId, async (client) => {
+    // Column names follow migration 001 (`tenants.id`, `business_name`, `plan_tier`).
+    // The previous version of this query referenced `tenants.tenant_id`,
+    // `organization_name` and `subscription_tier`, which never existed.
     const res = await client.query<{
       tenant_id: string;
       organization_name: string;
-      subscription_tier: TenantOverview['subscriptionTier'];
+      subscription_tier: string;
       usd_balance_cents: string;
       afn_balance_pul: string;
       credit_balance: string;
       monthly_credit_quota: string;
       elevenlabs_chars_used_mtd: string;
       bedrock_tokens_used_mtd: string;
-      images_generated_mtd: number;
+      images_generated_mtd: string;
     }>(
       `SELECT
-         t.tenant_id,
-         t.organization_name,
-         t.subscription_tier,
-         COALESCE(w.usd_balance_cents, 0) AS usd_balance_cents,
-         COALESCE(w.afn_balance_pul, 0) AS afn_balance_pul,
-         COALESCE(a.credit_balance, 0) AS credit_balance,
+         t.id                                    AS tenant_id,
+         t.business_name                         AS organization_name,
+         t.plan_tier                             AS subscription_tier,
+         COALESCE(w.usd_balance_cents, 0)        AS usd_balance_cents,
+         COALESCE(w.afn_balance_pul, 0)          AS afn_balance_pul,
+         COALESCE(a.credit_balance, 0)           AS credit_balance,
          COALESCE(a.monthly_credit_quota, 25000) AS monthly_credit_quota,
          COALESCE(a.elevenlabs_chars_used_mtd, 0) AS elevenlabs_chars_used_mtd,
-         COALESCE(a.bedrock_tokens_used_mtd, 0) AS bedrock_tokens_used_mtd,
-         COALESCE(a.images_generated_mtd, 0) AS images_generated_mtd
+         COALESCE(a.bedrock_tokens_used_mtd, 0)   AS bedrock_tokens_used_mtd,
+         COALESCE(a.images_generated_mtd, 0)      AS images_generated_mtd
        FROM tenants t
-       LEFT JOIN wallets w ON w.tenant_id = t.tenant_id
-       LEFT JOIN ai_credit_wallets a ON a.tenant_id = t.tenant_id
-       WHERE t.tenant_id = $1
+       LEFT JOIN wallets w ON w.tenant_id = t.id
+       LEFT JOIN ai_credit_wallets a ON a.tenant_id = t.id
+       WHERE t.id = $1
        LIMIT 1`,
       [tenantId]
     );
@@ -139,7 +142,9 @@ export async function getTenantOverview(tenantId: string): Promise<TenantOvervie
     return {
       tenantId: row.tenant_id,
       organizationName: row.organization_name,
-      subscriptionTier: row.subscription_tier,
+      // `tenants.plan_tier` is a free-form VARCHAR; the compile-time union is
+      // narrower than the column, so narrow it here rather than in SQL.
+      subscriptionTier: row.subscription_tier as TenantOverview['subscriptionTier'],
       usdBalanceCents: Number(row.usd_balance_cents),
       afnBalancePul: Number(row.afn_balance_pul),
       aiCreditBalance: Number(row.credit_balance),
@@ -148,5 +153,29 @@ export async function getTenantOverview(tenantId: string): Promise<TenantOvervie
       bedrockTokensUsedMtd: Number(row.bedrock_tokens_used_mtd),
       imagesGeneratedMtd: Number(row.images_generated_mtd),
     };
+  });
+}
+
+/**
+ * Ensures the tenant has a row in both wallet tables.
+ *
+ * `wallets` and `ai_credit_wallets` are keyed by tenant_id, so a plain
+ * `UPDATE ... WHERE tenant_id = $1` on a tenant that has never been topped up
+ * silently affects zero rows. Callers that deduct credits must call this first
+ * (or use `INSERT ... ON CONFLICT DO NOTHING` themselves) so that
+ * "0 rows updated" always means "insufficient funds" rather than "no wallet".
+ *
+ * Runs inside the tenant's RLS context, so the WITH CHECK clauses pass.
+ */
+export async function ensureWalletRows(tenantId: string): Promise<void> {
+  await withTenantContext(tenantId, async (client) => {
+    await client.query(
+      `INSERT INTO wallets (tenant_id) VALUES ($1) ON CONFLICT (tenant_id) DO NOTHING`,
+      [tenantId]
+    );
+    await client.query(
+      `INSERT INTO ai_credit_wallets (tenant_id) VALUES ($1) ON CONFLICT (tenant_id) DO NOTHING`,
+      [tenantId]
+    );
   });
 }
