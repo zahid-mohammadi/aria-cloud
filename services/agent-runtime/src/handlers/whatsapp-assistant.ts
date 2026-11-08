@@ -69,6 +69,10 @@ export async function handleWhatsAppMessage(
   // =================================================================
   // 3. REASONING & TEXT COMPLETION (AMAZON NOVA MICRO)
   // =================================================================
+  const aiName = process.env.SYSTEM_AI_NAME || "Aria Assistant";
+  const orgMission =
+    process.env.ORGANIZATION_MISSION || "AriaCloud — Afghan Digital Enablement Initiative";
+
   const chatResponse = await bedrock.send(
     new InvokeModelCommand({
       modelId: process.env.NOVA_MICRO_PROFILE_ID || "amazon.nova-micro-v1:0",
@@ -77,7 +81,7 @@ export async function handleWhatsAppMessage(
       body: JSON.stringify({
         system: [
           {
-            text: `شما 'آریا' هستید؛ دستیار صوتی و متنی هوشمند برای مردم افغانستان.
+            text: `شما '${aiName}' هستید؛ دستیار صوتی و متنی هوشمند در پلتفرم ${orgMission} (ariacloudservices.org).
 مودب و گرم به زبان کاربر (دری یا پشتو) پاسخ دهید.
 پاسخ‌ها را برای خوانش صوتی ساده و روان نگه دارید (حداکثر ۲ یا ۳ جمله کوتاه).`,
           },

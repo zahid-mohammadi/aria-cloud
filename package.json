@@ -1,17 +1,17 @@
 {
   "name": "aria-cloud",
-  "version": "1.3.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "Aria Cloud Services & Aria AI Studio - Multi-Tenant Managed Cloud & Multimodal AI Platform",
+  "description": "AriaCloud (ariacloudservices.org) — Afghan Digital Enablement Initiative: Multi-Tenant Cloud Hosting, Stalwart Mail, Financial Settlement, AI Storefront Builder & Multimodal AI Studio",
   "workspaces": [
+    "apps/*",
     "packages/*",
-    "services/*",
-    "apps/*"
+    "services/*"
   ],
   "scripts": {
-    "test:billing": "node --test services/billing/payment_processor.test.js",
-    "test:voice": "node --test services/agent-runtime/test/generate-voice.test.mjs",
-    "test": "npm run test:billing && npm run test:voice"
+    "dev:console": "npm --prefix apps/control-plane run dev",
+    "build:console": "npm --prefix apps/control-plane run build",
+    "typecheck": "npm --prefix apps/control-plane run typecheck"
   },
   "engines": {
     "node": ">=20.0.0"

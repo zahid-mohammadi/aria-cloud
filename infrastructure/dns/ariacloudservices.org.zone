@@ -1,0 +1,36 @@
+$ORIGIN ariacloudservices.org.
+$TTL 300
+
+; ============================================================================
+; AriaCloud Master Route 53 Public Hosted Zone — ariacloudservices.org
+; Mission: AriaCloud — Afghan Digital Enablement Initiative
+; ============================================================================
+
+; === Apex & Web Portal Routing ===
+; Note: In AWS Route 53, ALIAS targets CloudFront Hosted Zone ID Z2FDTNDATAQYW2
+ariacloudservices.org.                   IN A     ALIAS d111111abcdef8.cloudfront.net.
+ariacloudservices.org.                   IN AAAA  ALIAS d111111abcdef8.cloudfront.net.
+app.ariacloudservices.org.               IN CNAME d222222abcdef8.cloudfront.net.
+api.ariacloudservices.org.               IN CNAME d333333abcdef8.cloudfront.net.
+cdn.ariacloudservices.org.               IN CNAME d555555abcdef8.cloudfront.net.
+
+; === Merchant Wildcard Sites (e.g., kabul-saffron.ariacloudservices.org) ===
+*.ariacloudservices.org.                 IN CNAME d444444abcdef8.cloudfront.net.
+
+; === Business Email (Amazon SES + Stalwart Mail Server) ===
+mail.ariacloudservices.org.              IN A     <MAIL_SERVER_STATIC_IP>
+; Direct Stalwart MX or SES Inbound MX + Custom MAIL FROM bounce subdomain:
+ariacloudservices.org.                   IN MX    10 mail.ariacloudservices.org.
+bounce.ariacloudservices.org.            IN MX    10 feedback-smtp.me-central-1.amazonses.com.
+
+; === SPF Record (Permits Amazon SES and Stalwart host IP) ===
+ariacloudservices.org.                   IN TXT   "v=spf1 include:amazonses.com ip4:<MAIL_SERVER_STATIC_IP> ~all"
+bounce.ariacloudservices.org.            IN TXT   "v=spf1 include:amazonses.com ~all"
+
+; === DMARC Policy (Prevents unauthorized spoofing) ===
+_dmarc.ariacloudservices.org.            IN TXT   "v=DMARC1; p=quarantine; rua=mailto:postmaster@ariacloudservices.org; pct=100;"
+
+; === SES Easy-DKIM CNAME Records (2048-bit RSA generated from SES Console) ===
+token1._domainkey.ariacloudservices.org. IN CNAME token1.dkim.amazonses.com.
+token2._domainkey.ariacloudservices.org. IN CNAME token2.dkim.amazonses.com.
+token3._domainkey.ariacloudservices.org. IN CNAME token3.dkim.amazonses.com.

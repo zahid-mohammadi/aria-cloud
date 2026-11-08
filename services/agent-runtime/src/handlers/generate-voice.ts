@@ -174,9 +174,12 @@ export const handler = async (event: any) => {
 
     // 4. Upload MP3 to S3 Bucket for CloudFront Edge Caching
     const s3Key = `ai-studio/voice/${tenantId}/${uuidv4()}.mp3`;
+    const publicAssetsBucket = process.env.PUBLIC_ASSETS_BUCKET || "ariacloud-public-assets";
+    const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN || "cdn.ariacloudservices.org";
+
     await s3.send(
       new PutObjectCommand({
-        Bucket: process.env.PUBLIC_ASSETS_BUCKET,
+        Bucket: publicAssetsBucket,
         Key: s3Key,
         Body: audioBuffer,
         ContentType: "audio/mpeg",
@@ -184,7 +187,7 @@ export const handler = async (event: any) => {
       })
     );
 
-    const cdnUrl = `https://${process.env.CLOUDFRONT_DOMAIN}/${s3Key}`;
+    const cdnUrl = `https://${cloudfrontDomain}/${s3Key}`;
 
     // 5. Save to TTS Cache (idempotent on concurrent synthesis) & Deduct User Credits
     await client.query(

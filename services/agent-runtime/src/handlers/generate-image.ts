@@ -135,10 +135,12 @@ export const handler = async (event: any) => {
 
     const imageBuffer = Buffer.from(base64Image, "base64");
     const s3Key = `ai-studio/images/${tenantId}/${uuidv4()}.png`;
+    const publicAssetsBucket = process.env.PUBLIC_ASSETS_BUCKET || "ariacloud-public-assets";
+    const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN || "cdn.ariacloudservices.org";
 
     await s3.send(
       new PutObjectCommand({
-        Bucket: process.env.PUBLIC_ASSETS_BUCKET,
+        Bucket: publicAssetsBucket,
         Key: s3Key,
         Body: imageBuffer,
         ContentType: "image/png",
@@ -146,7 +148,7 @@ export const handler = async (event: any) => {
       })
     );
 
-    const imageUrl = `https://${process.env.CLOUDFRONT_DOMAIN}/${s3Key}`;
+    const imageUrl = `https://${cloudfrontDomain}/${s3Key}`;
 
     await client.query(
       `UPDATE user_ai_quotas
