@@ -46,37 +46,33 @@ export function HeroTopologyViz() {
             <stop offset="50%" stopColor="#38bdf8" stopOpacity="0.6" />
             <stop offset="100%" stopColor="#ff9900" stopOpacity="0.1" />
           </linearGradient>
+          <clipPath id="viz-floor-clip">
+            <polygon points="0,640 320,470 880,470 1200,640" />
+          </clipPath>
         </defs>
 
-        {/* Receding perspective floor grid */}
-        <g className="viz-grid-group" stroke="#c9d6e6" strokeWidth="1" opacity="0.9">
+        {/* Receding perspective floor grid — lines clipped to the trapezoid */}
+        <g className="viz-grid-group">
           <polygon
             points="0,640 320,470 880,470 1200,640"
             fill="url(#viz-arc)"
-            stroke="none"
-            opacity="0.25"
+            stroke="#d7e0ec"
+            strokeWidth="1"
+            opacity="0.35"
           />
-          {/* horizontal lines: quadratic spacing toward the horizon */}
-          {Array.from({ length: 8 }).map((_, i) => {
-            const t = (i + 1) / 9;
-            const y = 470 + t * t * 170;
-            return (
-              <line key={`h${i}`} x1={0} y1={y} x2={1200} y2={y} />
-            );
-          })}
-          {/* vertical lines: converge toward a vanishing band at the horizon */}
-          {Array.from({ length: 11 }).map((_, i) => {
-            const t = i / 10;
-            return (
-              <line
-                key={`v${i}`}
-                x1={320 + t * 560}
-                y1={470}
-                x2={t * 1200}
-                y2={640}
-              />
-            );
-          })}
+          <g stroke="#c3d0e0" strokeWidth="1" opacity="0.45" clipPath="url(#viz-floor-clip)">
+            {Array.from({ length: 6 }).map((_, i) => {
+              const t = (i + 1) / 7;
+              const y = 470 + t * t * 170;
+              return <line key={`h${i}`} x1={0} y1={y} x2={1200} y2={y} />;
+            })}
+            {Array.from({ length: 9 }).map((_, i) => {
+              const t = i / 8;
+              return (
+                <line key={`v${i}`} x1={320 + t * 560} y1={470} x2={t * 1200} y2={640} />
+              );
+            })}
+          </g>
         </g>
 
         {/* Connecting arcs with travelling pulses */}
@@ -92,22 +88,22 @@ export function HeroTopologyViz() {
         <g className="viz-pulses">
           <circle r="3.5" fill="#7dd3fc" filter="url(#viz-glow)">
             <animateMotion dur="3.4s" repeatCount="indefinite">
-              <mpath href="#arc-kbl" />
+              <mpath href="#arc-kbl" xlinkHref="#arc-kbl" />
             </animateMotion>
           </circle>
           <circle r="3.5" fill="#fbbf24" filter="url(#viz-glow)">
             <animateMotion dur="4.1s" repeatCount="indefinite">
-              <mpath href="#arc-hrt" />
+              <mpath href="#arc-hrt" xlinkHref="#arc-hrt" />
             </animateMotion>
           </circle>
           <circle r="3.5" fill="#6ee7b7" filter="url(#viz-glow)">
             <animateMotion dur="3.8s" repeatCount="indefinite">
-              <mpath href="#arc-mzr" />
+              <mpath href="#arc-mzr" xlinkHref="#arc-mzr" />
             </animateMotion>
           </circle>
           <circle r="3.5" fill="#a5b4fc" filter="url(#viz-glow)">
             <animateMotion dur="4.6s" repeatCount="indefinite">
-              <mpath href="#arc-eu" />
+              <mpath href="#arc-eu" xlinkHref="#arc-eu" />
             </animateMotion>
           </circle>
         </g>
