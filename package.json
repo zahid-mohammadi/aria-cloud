@@ -1,0 +1,19 @@
+{
+  "name": "aria-cloud",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Aria Cloud Services & Aria AI Studio - Multi-Tenant Managed Cloud & Multimodal AI Platform",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test:billing": "node --test services/billing/payment_processor.test.js",
+    "test:voice": "node --test services/agent-runtime/test/generate-voice.test.mjs",
+    "test": "npm run test:billing && npm run test:voice"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
