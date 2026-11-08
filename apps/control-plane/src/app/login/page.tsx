@@ -50,7 +50,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="warning">
-          Restricted area. All sign-in attempts and administrative actions are logged.
+          Restricted area. Sign-in attempts are recorded.
         </p>
 
         <form onSubmit={onSubmit} noValidate>
