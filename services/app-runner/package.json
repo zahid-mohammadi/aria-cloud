@@ -1,0 +1,20 @@
+{
+  "name": "@aria-cloud/app-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dynamic Containerized Application & API Runner for AriaCloud Sovereign Platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aria-cloud/database": "workspace:*",
+    "@aws-sdk/client-apprunner": "^3.650.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

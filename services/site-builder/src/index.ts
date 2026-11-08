@@ -23,6 +23,12 @@ import {
 } from '@aws-sdk/client-cloudfront';
 import { withTenantContext } from '@aria-cloud/database';
 
+// Re-export Universal Site Builder Engine and Conversational Update Engine
+export * from './types';
+export * from './compiler';
+export * from './generator';
+export * from './updater';
+
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const PRIMARY_REGION = process.env.SES_REGION || 'me-central-1';
 const BEDROCK_REGION = process.env.BEDROCK_REGION || 'us-east-1';

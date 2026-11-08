@@ -1,0 +1,29 @@
+{
+  "name": "@aria-cloud/web-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AriaCloud Merchant Console (app.ariacloudservices.org) — Afghan Digital Enablement Platform",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aria-cloud/database": "workspace:*",
+    "@aria-cloud/ui": "workspace:*",
+    "@cloudscape-design/board-components": "^3.0.70",
+    "@cloudscape-design/components": "^3.0.760",
+    "@cloudscape-design/design-tokens": "^3.0.48",
+    "@cloudscape-design/global-styles": "^1.0.38",
+    "next": "14.2.16",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}
