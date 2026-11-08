@@ -27,6 +27,9 @@ jobs:
       - name: Build workspace packages
         run: pnpm build:packages
 
+      - name: Build services
+        run: pnpm build:services
+
       - name: Typecheck
         run: pnpm -r typecheck
 

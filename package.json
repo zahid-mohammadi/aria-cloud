@@ -21,8 +21,9 @@
     "db:migrate": "pnpm --filter @aria-cloud/database migrate",
     "user:create": "pnpm --filter @aria-cloud/auth create-user",
     "verify": "node scripts/verify/index.mjs",
-    "verify:full": "pnpm build:packages && node scripts/verify/index.mjs",
-    "build:services": "pnpm -r --filter \"./services/**\" run build"
+    "verify:full": "pnpm build:packages && pnpm build:services && node scripts/verify/index.mjs",
+    "build:services": "pnpm -r --filter \"./services/**\" run build",
+    "agent:create": "pnpm --filter @aria-cloud/billing create-agent"
   },
   "engines": {
     "node": ">=20.0.0"
