@@ -23,9 +23,19 @@ export async function withTenantContext<T>(
     throw new Error(`Invalid tenant UUID format: ${tenantId}`);
   }
 
-  // If running in environment without live DATABASE_URL, run fallback or mock safely
+  // Without a database we must NOT silently succeed: a mock client that
+  // returns zero rows makes writes disappear and reads look empty, which is
+  // indistinguishable from real behaviour. Fail closed unless demo mode is
+  // explicitly opted into.
   if (!process.env.DATABASE_URL) {
-    // Provide a lightweight mock client for in-memory or build-time operations
+    if (process.env.ARIA_DEMO_MODE !== 'true') {
+      throw new Error(
+        'DATABASE_URL is not configured. Refusing to run tenant-scoped queries. ' +
+          'Set DATABASE_URL, or set ARIA_DEMO_MODE=true to use the in-memory demo client ' +
+          '(all writes are discarded).'
+      );
+    }
+
     const mockClient = {
       query: async () => ({ rows: [], rowCount: 0 }),
       release: () => {},

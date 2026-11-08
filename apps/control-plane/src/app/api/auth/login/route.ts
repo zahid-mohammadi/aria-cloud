@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import {
   createSession,
   findCredentialsByEmail,
+  recordAuditEvent,
   recordFailedLogin,
   recordSuccessfulLogin,
   verifyPassword,
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest) {
 
     if (!credentials || !passwordOk) {
       if (credentials) await recordFailedLogin(credentials.user_id);
+      await recordAuditEvent({
+        actorEmail: email,
+        action: 'admin.login.failed',
+        metadata: { reason: credentials ? 'bad_password' : 'unknown_email' },
+        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      });
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
@@ -53,6 +60,13 @@ export async function POST(req: NextRequest) {
     // this is simply the wrong console).
     if (!credentials.is_platform_admin) {
       console.warn('[admin/login] rejected non-admin account:', credentials.email);
+      await recordAuditEvent({
+        actorUserId: credentials.user_id,
+        actorEmail: credentials.email,
+        action: 'admin.login.denied',
+        metadata: { reason: 'not_platform_admin' },
+        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      });
       return NextResponse.json(
         { error: 'This account is not authorized for platform administration.' },
         { status: 403 }
@@ -70,6 +84,12 @@ export async function POST(req: NextRequest) {
     });
 
     console.info('[admin/login]', credentials.email, 'signed in');
+    await recordAuditEvent({
+      actorUserId: credentials.user_id,
+      actorEmail: credentials.email,
+      action: 'admin.login.success',
+      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+    });
 
     const response = NextResponse.json({
       ok: true,

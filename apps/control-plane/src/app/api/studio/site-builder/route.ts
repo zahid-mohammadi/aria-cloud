@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
+import { audit } from '@/lib/audit';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const ASSETS_BUCKET = process.env.PUBLIC_ASSETS_BUCKET || 'ariacloud-public-assets';
@@ -8,6 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireAdmin();
     if (auth.response) return auth.response;
+    await audit(req, auth.session, 'api.studio.site_builder');
 
     const body = await req.json();
     const {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
+import { audit } from '@/lib/audit';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { withTenantContext } from '@aria-cloud/database';
 
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireAdmin();
     if (auth.response) return auth.response;
+    await audit(req, auth.session, 'api.studio.image');
 
     const body = await req.json();
     const {

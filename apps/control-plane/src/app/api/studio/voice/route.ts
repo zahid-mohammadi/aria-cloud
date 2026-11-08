@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
+import { audit } from '@/lib/audit';
 import { withTenantContext } from '@aria-cloud/database';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -8,6 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireAdmin();
     if (auth.response) return auth.response;
+    await audit(req, auth.session, 'api.studio.voice');
 
     const body = await req.json();
     const {

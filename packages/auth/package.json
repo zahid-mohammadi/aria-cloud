@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@aria-cloud/database": "workspace:*",
+    "@aws-sdk/client-sesv2": "^3.650.0",
     "pg": "^8.13.1"
   },
   "devDependencies": {

@@ -8,13 +8,19 @@ import { SESSION_COOKIE } from '@aria-cloud/auth/constants';
  * validation in each route, because middleware runs on the edge runtime and
  * cannot reach PostgreSQL.
  */
-const PUBLIC_PAGE = '/login';
-const PUBLIC_API = ['/api/auth/login', '/api/auth/logout', '/api/auth/me'];
+const PUBLIC_PAGES = ['/login', '/forgot', '/reset'];
+const PUBLIC_API = [
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/me',
+  '/api/auth/forgot',
+  '/api/auth/reset',
+];
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  if (pathname === PUBLIC_PAGE || PUBLIC_API.some((p) => pathname.startsWith(p))) {
+  if (PUBLIC_PAGES.includes(pathname) || PUBLIC_API.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
@@ -27,7 +33,7 @@ export function middleware(req: NextRequest) {
   }
 
   const url = req.nextUrl.clone();
-  url.pathname = PUBLIC_PAGE;
+  url.pathname = '/login';
   url.search = '';
   if (pathname !== '/') url.searchParams.set('next', pathname + search);
   return NextResponse.redirect(url);

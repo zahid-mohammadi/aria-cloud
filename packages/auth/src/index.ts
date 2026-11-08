@@ -301,3 +301,100 @@ export async function createAccount(input: {
 
   return { userId };
 }
+
+// --- Audit -----------------------------------------------------------------
+
+export interface AuditEventInput {
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+  action: string;
+  targetTenantId?: string | null;
+  targetType?: string | null;
+  targetId?: string | null;
+  metadata?: Record<string, unknown>;
+  ipAddress?: string | null;
+}
+
+/**
+ * Records a privileged action. Never throws: an audit failure must not take
+ * down the administrative action it is describing, but it is logged loudly.
+ */
+export async function recordAuditEvent(input: AuditEventInput): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO admin_audit_log
+         (actor_user_id, actor_email, action, target_tenant_id, target_type, target_id, metadata, ip_address)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
+      [
+        input.actorUserId ?? null,
+        input.actorEmail ?? null,
+        input.action,
+        input.targetTenantId ?? null,
+        input.targetType ?? null,
+        input.targetId ?? null,
+        JSON.stringify(input.metadata ?? {}),
+        input.ipAddress ?? null,
+      ]
+    );
+  } catch (error) {
+    console.error('[audit] failed to record event', input.action, error);
+  }
+}
+
+// --- One-time tokens (email verification / password reset) -----------------
+
+export type AuthTokenPurpose = 'email_verify' | 'password_reset';
+
+/** Returns the raw token; only its hash is stored. */
+export async function issueAuthToken(
+  userId: string,
+  purpose: AuthTokenPurpose,
+  ttlMinutes = 60
+): Promise<string> {
+  const token = generateToken();
+  await pool.query(
+    `INSERT INTO auth_tokens (user_id, purpose, token_hash, expires_at)
+     VALUES ($1, $2, $3, now() + ($4 || ' minutes')::interval)`,
+    [userId, purpose, hashToken(token), String(ttlMinutes)]
+  );
+  return token;
+}
+
+/**
+ * Single-use consumption. The UPDATE ... WHERE consumed_at IS NULL is the
+ * atomic guard: two concurrent requests with the same token cannot both win.
+ */
+export async function consumeAuthToken(
+  token: string,
+  purpose: AuthTokenPurpose
+): Promise<{ userId: string } | null> {
+  const res = await pool.query<{ user_id: string }>(
+    `UPDATE auth_tokens
+        SET consumed_at = now()
+      WHERE token_hash = $1
+        AND purpose = $2
+        AND consumed_at IS NULL
+        AND expires_at > now()
+      RETURNING user_id`,
+    [hashToken(token), purpose]
+  );
+  const row = res.rows[0];
+  return row ? { userId: row.user_id } : null;
+}
+
+/** Sets a new password and revokes every existing session for that user. */
+export async function setPassword(userId: string, newPassword: string): Promise<void> {
+  const hash = await hashPassword(newPassword);
+  await pool.query(
+    `UPDATE user_credentials
+        SET password_hash = $1,
+            failed_login_attempts = 0,
+            locked_until = NULL,
+            updated_at = now()
+      WHERE user_id = $2`,
+    [hash, userId]
+  );
+  await revokeAllSessionsForUser(userId);
+}
+
+export * from './mailer';

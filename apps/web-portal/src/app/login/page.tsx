@@ -91,6 +91,10 @@ export default function LoginPage() {
           </button>
         </form>
 
+        <p className="forgot">
+          <a href="/forgot">رمز عبور را فراموش کرده‌اید؟ / Forgot password?</a>
+        </p>
+
         <p className="footnote">
           حساب ندارید؟ با تیم آریا کلاود در واتساپ تماس بگیرید.
           <br />
@@ -148,6 +152,8 @@ export default function LoginPage() {
           background: rgba(225, 29, 72, .12); border: 1px solid rgba(225, 29, 72, .35);
           color: #fda4af; font-size: 12.5px; line-height: 1.6;
         }
+        .forgot { margin: 14px 0 0; text-align: center; font-size: 12.5px; }
+        .forgot a { color: #34d399; text-decoration: none; }
         .footnote { margin: 22px 0 0; font-size: 11.5px; line-height: 1.7; color: #5c7d72; text-align: center; }
       `}</style>
     </main>

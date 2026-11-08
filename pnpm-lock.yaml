@@ -105,6 +105,9 @@ importers:
       '@aria-cloud/database':
         specifier: workspace:*
         version: link:../database
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.650.0
+        version: 3.1164.0
       pg:
         specifier: ^8.13.1
         version: 8.23.1

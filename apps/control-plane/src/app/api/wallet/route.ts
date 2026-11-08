@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
+import { audit } from '@/lib/audit';
 import { getTenantOverview, withTenantContext } from '@aria-cloud/database';
 
 export async function GET(req: NextRequest) {
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireAdmin();
     if (auth.response) return auth.response;
+    await audit(req, auth.session, 'api.wallet');
 
     const body = await req.json();
     const {
