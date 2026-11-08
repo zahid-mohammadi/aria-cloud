@@ -16,12 +16,15 @@ import http from 'http';
 import { URL } from 'url';
 import {
   checkTenantRateLimit,
-  signTenantJwt,
-  TenantJwtClaims,
+  safeConstantTimeEqual,
   verifyHesabPaySignature,
   verifyMetaWebhookSignature,
   verifyTenantJwt,
 } from './crypto-auth';
+import { pool } from '@aria-cloud/database';
+// The gateway runs on Node, so it can import the full module (unlike edge
+// middleware, which needs the constants subpath).
+import { resolveSession, SESSION_COOKIE } from '@aria-cloud/auth';
 import {
   provisionCustomDomain,
   provisionMerchantSubdomain,
@@ -31,8 +34,7 @@ import { buildAndPublishStorefront } from '@aria-cloud/site-builder';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const PRIMARY_REGION = process.env.SES_REGION || 'me-central-1';
-const META_VERIFY_TOKEN =
-  process.env.META_WEBHOOK_VERIFY_TOKEN || 'ariacloud-whatsapp-verify-token';
+const META_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || '';
 const META_APP_SECRET = process.env.META_APP_SECRET || '';
 const HESABPAY_WEBHOOK_SECRET = process.env.HESABPAY_WEBHOOK_SECRET || '';
 
@@ -65,13 +67,75 @@ function jsonResponse(statusCode: number, data: unknown): GatewayResponse {
   };
 }
 
-function authenticateBearer(headers: Record<string, string | undefined>): TenantJwtClaims {
-  const authHeader = headers['authorization'] || headers['Authorization'] || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid Authorization: Bearer <token> header.');
+interface AuthContext {
+  tenantId: string;
+  userId?: string;
+  locale?: 'fa' | 'ps_AF' | 'en';
+}
+
+function getCookie(
+  headers: Record<string, string | undefined>,
+  name: string
+): string | undefined {
+  const raw = headers['cookie'] || headers['Cookie'];
+  if (!raw) return undefined;
+  for (const part of raw.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() === name) {
+      return decodeURIComponent(part.slice(idx + 1).trim());
+    }
   }
-  const token = authHeader.slice('Bearer '.length).trim();
-  return verifyTenantJwt(token);
+  return undefined;
+}
+
+/**
+ * Authorization for privileged routes.
+ *
+ * Primary path is the console session cookie (same session table the web apps
+ * use). Bearer tokens remain available for service-to-service calls, but only
+ * when JWT_SECRET is explicitly configured — otherwise they are refused rather
+ * than silently trusted.
+ */
+async function authenticate(
+  headers: Record<string, string | undefined>
+): Promise<AuthContext> {
+  const sessionToken = getCookie(headers, SESSION_COOKIE);
+  if (sessionToken) {
+    const session = await resolveSession(sessionToken);
+    if (session) {
+      return { tenantId: session.tenantId, userId: session.userId };
+    }
+  }
+
+  const authHeader = headers['authorization'] || headers['Authorization'] || '';
+  if (authHeader.startsWith('Bearer ')) {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('Unauthorized: bearer tokens are disabled on this deployment.');
+    }
+    const claims = verifyTenantJwt(authHeader.slice('Bearer '.length).trim());
+    return { tenantId: claims.tenantId, userId: claims.sub, locale: claims.locale };
+  }
+
+  throw new Error('Unauthorized: sign in to the console or supply a service token.');
+}
+
+/**
+ * Maps a WhatsApp sender to a tenant using the merchant owner's phone number.
+ * Returns null when the number is not linked to an active account, so callers
+ * can refuse instead of acting on a placeholder tenant.
+ */
+async function resolveTenantByPhone(phone: string): Promise<string | null> {
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return null;
+  const res = await pool.query<{ id: string }>(
+    `SELECT id FROM tenants
+      WHERE regexp_replace(owner_phone, '\\D', '', 'g') = $1
+        AND account_status <> 'suspended'
+      LIMIT 1`,
+    [digits]
+  );
+  return res.rows[0]?.id ?? null;
 }
 
 /**
@@ -86,7 +150,7 @@ export async function handleApiGatewayRequest(
   }
 
   // Rate-limit check per client IP or Authorization token
-  const rateKey = req.headers['authorization'] || req.clientIp || 'anon';
+  const rateKey = req.clientIp || 'unknown';
   const rate = checkTenantRateLimit(rateKey, 90, 3);
   if (!rate.allowed) {
     return jsonResponse(429, {
@@ -110,29 +174,15 @@ export async function handleApiGatewayRequest(
       });
     }
 
-    // 2. Multi-Tenant JWT Issuance (`POST /v1/auth/token`)
+    // 2. Self-service JWT minting has been removed. Tokens used to be issued
+    //    for any userId/tenantId without a credential, which made every
+    //    tenant-scoped control on this gateway bypassable. Sessions are now
+    //    issued by the console login (see packages/auth) and accepted below.
     if (req.method === 'POST' && req.path === '/v1/auth/token') {
-      const body = JSON.parse(req.rawBody || '{}');
-      const { userId, tenantId, role = 'owner', planTier = 'pro_studio', locale = 'fa' } = body;
-
-      if (!userId || !tenantId) {
-        return jsonResponse(400, { error: 'userId and tenantId are required.' });
-      }
-
-      const accessToken = signTenantJwt({
-        sub: String(userId),
-        tenantId: String(tenantId),
-        role,
-        planTier,
-        locale,
-      });
-
-      return jsonResponse(200, {
-        accessToken,
-        tokenType: 'Bearer',
-        expiresIn: 86400,
-        tenantId,
-        issuer: `https://api.${ROOT_DOMAIN}`,
+      return jsonResponse(410, {
+        error:
+          'Token minting has been removed. Sign in at the console to obtain a session, ' +
+          'or configure a service token out of band.',
       });
     }
 
@@ -142,7 +192,12 @@ export async function handleApiGatewayRequest(
       const token = req.query['hub.verify_token'];
       const challenge = req.query['hub.challenge'] || '';
 
-      if (mode === 'subscribe' && token === META_VERIFY_TOKEN) {
+      if (!META_VERIFY_TOKEN) {
+        return jsonResponse(503, {
+          error: 'WhatsApp webhook verify token is not configured.',
+        });
+      }
+      if (mode === 'subscribe' && token && safeConstantTimeEqual(META_VERIFY_TOKEN, token)) {
         return {
           statusCode: 200,
           headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -157,7 +212,12 @@ export async function handleApiGatewayRequest(
       const sigHeader =
         req.headers['x-hub-signature-256'] || req.headers['X-Hub-Signature-256'];
 
-      if (META_APP_SECRET && !verifyMetaWebhookSignature(req.rawBody, sigHeader, META_APP_SECRET)) {
+      if (!META_APP_SECRET) {
+        return jsonResponse(503, {
+          error: 'META_APP_SECRET is not configured; refusing unsigned WhatsApp webhook.',
+        });
+      }
+      if (!verifyMetaWebhookSignature(req.rawBody, sigHeader, META_APP_SECRET)) {
         return jsonResponse(401, {
           error: 'Invalid X-Hub-Signature-256 cryptographic signature.',
         });
@@ -181,8 +241,18 @@ export async function handleApiGatewayRequest(
         const slug = parts[1] || 'kabul-store';
         const promptText = parts.slice(2).join(' ') || 'فروشگاه آنلاین محصولات افغانی';
 
+        const tenantId = await resolveTenantByPhone(senderPhone);
+        if (!tenantId) {
+          return jsonResponse(200, {
+            status: 'sender_not_registered',
+            senderPhone,
+            message:
+              'This WhatsApp number is not linked to an AriaCloud merchant account.',
+          });
+        }
+
         const built = await buildAndPublishStorefront({
-          tenantId: '00000000-0000-0000-0000-000000000001',
+          tenantId,
           subdomainSlug: slug,
           prompt: promptText,
           primaryLocale: 'fa',
@@ -213,10 +283,12 @@ export async function handleApiGatewayRequest(
       const sigHeader =
         req.headers['x-hesabpay-signature'] || req.headers['X-HesabPay-Signature'];
 
-      if (
-        HESABPAY_WEBHOOK_SECRET &&
-        !verifyHesabPaySignature(req.rawBody, sigHeader, HESABPAY_WEBHOOK_SECRET)
-      ) {
+      if (!HESABPAY_WEBHOOK_SECRET) {
+        return jsonResponse(503, {
+          error: 'HESABPAY_WEBHOOK_SECRET is not configured; refusing unsigned webhook.',
+        });
+      }
+      if (!verifyHesabPaySignature(req.rawBody, sigHeader, HESABPAY_WEBHOOK_SECRET)) {
         return jsonResponse(401, {
           error: 'Invalid X-HesabPay-Signature HMAC-SHA256 digest.',
         });
@@ -244,7 +316,7 @@ export async function handleApiGatewayRequest(
 
     // 6. Protected Route: Domain, Wildcard Subdomain & Stalwart Mail Provisioning
     if (req.method === 'POST' && req.path === '/v1/domains/provision') {
-      const claims = authenticateBearer(req.headers);
+      const claims = await authenticate(req.headers);
       const body = JSON.parse(req.rawBody || '{}');
 
       if (body.action === 'subdomain') {
@@ -282,7 +354,7 @@ export async function handleApiGatewayRequest(
 
     // 7. Protected Route: Build & Publish AI Merchant Storefront (`POST /v1/storefronts/build`)
     if (req.method === 'POST' && req.path === '/v1/storefronts/build') {
-      const claims = authenticateBearer(req.headers);
+      const claims = await authenticate(req.headers);
       const body = JSON.parse(req.rawBody || '{}');
 
       const result = await buildAndPublishStorefront({
@@ -303,8 +375,7 @@ export async function handleApiGatewayRequest(
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Gateway error';
-    const isAuthError =
-      message.includes('JWT') || message.includes('Authorization');
+    const isAuthError = /unauthori[sz]ed|jwt|authorization/i.test(message);
     return jsonResponse(isAuthError ? 401 : 500, { error: message });
   }
 }

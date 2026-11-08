@@ -13,7 +13,8 @@
   "dependencies": {
     "@aria-cloud/database": "workspace:*",
     "@aria-cloud/domain-provisioner": "workspace:*",
-    "@aria-cloud/site-builder": "workspace:*"
+    "@aria-cloud/site-builder": "workspace:*",
+    "@aria-cloud/auth": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
