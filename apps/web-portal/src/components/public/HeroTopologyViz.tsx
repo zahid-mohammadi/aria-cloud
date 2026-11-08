@@ -115,7 +115,7 @@ export function HeroTopologyViz() {
           <circle cx="330" cy="540" r="13" fill="url(#viz-sphere-emerald)" stroke="#10b981" strokeOpacity="0.6" />
           <circle cx="120" cy="150" r="11" fill="url(#viz-sphere-blue)" stroke="#0ea5e9" strokeOpacity="0.5" />
           <circle cx="1050" cy="120" r="11" fill="url(#viz-sphere-orange)" stroke="#f59e0b" strokeOpacity="0.5" />
-          {/* Hub: me-central-1 */}
+          {/* Central cloud hub */}
           <circle cx="940" cy="210" r="26" fill="url(#viz-sphere-orange)" stroke="#ff9900" strokeOpacity="0.8" />
         </g>
 
@@ -124,9 +124,9 @@ export function HeroTopologyViz() {
           <text x="268" y="248">Kabul</text>
           <text x="208" y="418">Herat</text>
           <text x="358" y="538">Mazar</text>
-          <text x="140" y="148">eu-west-1</text>
-          <text x="1012" y="118">us-east-1</text>
-          <text x="902" y="208" fill="#fbbf24" fontWeight="700">me-central-1</text>
+          <text x="140" y="148">Europe</text>
+          <text x="1012" y="118">Americas</text>
+          <text x="902" y="208" fill="#fbbf24" fontWeight="700">Core</text>
         </g>
       </svg>
     </div>
