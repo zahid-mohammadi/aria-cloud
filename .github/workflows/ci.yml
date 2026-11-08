@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: Typecheck, build & verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm build:packages
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Verify schema, RLS and auth flows (PostgreSQL via PGlite)
+        run: pnpm verify
+
+      - name: Build merchant console
+        run: pnpm --filter @aria-cloud/web-portal build
+
+      - name: Build control plane
+        run: pnpm --filter @aria-cloud/control-plane build

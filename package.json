@@ -19,9 +19,15 @@
     "build:console": "npm --prefix apps/control-plane run build",
     "typecheck": "npm --prefix apps/web-portal run typecheck",
     "db:migrate": "pnpm --filter @aria-cloud/database migrate",
-    "user:create": "pnpm --filter @aria-cloud/auth create-user"
+    "user:create": "pnpm --filter @aria-cloud/auth create-user",
+    "verify": "node scripts/verify/index.mjs",
+    "verify:full": "pnpm build:packages && node scripts/verify/index.mjs",
+    "build:services": "pnpm -r --filter \"./services/**\" run build"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15"
   }
 }

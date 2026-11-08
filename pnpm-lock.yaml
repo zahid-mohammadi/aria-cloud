@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.15
+        version: 0.5.15
 
   apps/control-plane:
     dependencies:
@@ -156,6 +160,9 @@ importers:
 
   services/api-gateway:
     dependencies:
+      '@aria-cloud/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@aria-cloud/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -415,6 +422,9 @@ packages:
     resolution: {integrity: sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==}
     peerDependencies:
       react: '>=16.8.0'
+
+  '@electric-sql/pglite@0.5.15':
+    resolution: {integrity: sha512-ERZWgaRTxueGV4cvL1tfpAOzFCWTXoUtbCBqnf2FhHDVs/so9eAKaanvrwWF9Dntx7BYsmFQujVQ0/B4S8Mmiw==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -1131,6 +1141,8 @@ snapshots:
     dependencies:
       react: 18.3.1
       tslib: 2.9.1
+
+  '@electric-sql/pglite@0.5.15': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
