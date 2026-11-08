@@ -7,28 +7,28 @@
 */
 
 :root {
-  --color-enterprise-navy: #0f172a;
-  --color-enterprise-slate-dark: #0b132b;
-  --color-enterprise-slate: #161e2e;
-  --color-enterprise-card: #1a2332;
-  --color-enterprise-card-hover: #222e42;
-  --color-enterprise-border: #2a3649;
-  --color-enterprise-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-enterprise-navy: #232f3e;
+  --color-enterprise-slate-dark: #ffffff;
+  --color-enterprise-slate: #f4f6f9;
+  --color-enterprise-card: #ffffff;
+  --color-enterprise-card-hover: #f1f5f9;
+  --color-enterprise-border: #e3e8ee;
+  --color-enterprise-border-subtle: rgba(15, 23, 42, 0.08);
   --color-enterprise-border-active: #ff9900;
   
   /* Signature Enterprise Accents */
   --color-enterprise-orange: #ec7211;
   --color-enterprise-orange-hover: #d86208;
-  --color-enterprise-orange-glow: rgba(236, 114, 17, 0.25);
+  --color-enterprise-orange-glow: rgba(236, 114, 17, 0.16);
   --color-enterprise-gold: #ff9900;
   --color-enterprise-blue: #0073bb;
   --color-enterprise-blue-hover: #005a92;
   --color-enterprise-cobalt: #2563eb;
-  --color-enterprise-emerald: #10b981;
-  --color-enterprise-emerald-dark: #065f46;
-  --color-enterprise-text-main: #f8fafc;
-  --color-enterprise-text-muted: #94a3b8;
-  --color-enterprise-text-subtle: #64748b;
+  --color-enterprise-emerald: #059669;
+  --color-enterprise-emerald-dark: #047857;
+  --color-enterprise-text-main: #16191f;
+  --color-enterprise-text-muted: #545b64;
+  --color-enterprise-text-subtle: #687078;
   
   --font-latin: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-vazir: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -54,7 +54,7 @@
 
 /* Micro Ticker Bar (Top Announcement Strip) */
 .public-ticker {
-  background-color: #060a17;
+  background-color: #f6f8fb;
   border-bottom: 1px solid var(--color-enterprise-border);
   padding-block: 0.5rem;
   padding-inline: 1.25rem;
@@ -103,7 +103,7 @@
   padding-inline: 0.5rem;
   padding-block: 0.125rem;
   border-radius: 4px;
-  color: #38bdf8;
+  color: #0369a1;
 }
 
 /* Public Header (Enterprise Style Deep Navigation) */
@@ -111,7 +111,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background-color: rgba(15, 23, 42, 0.95);
+  background-color: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-enterprise-border);
@@ -133,7 +133,7 @@
   align-items: center;
   gap: 0.75rem;
   text-decoration: none;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
 }
 
 .brand-glyph {
@@ -155,6 +155,7 @@
   font-weight: 800;
   font-size: 1.1875rem;
   letter-spacing: -0.01em;
+  color: var(--color-enterprise-navy);
 }
 
 .brand-badge {
@@ -180,7 +181,7 @@
 }
 
 .public-nav-link {
-  color: #cbd5e1;
+  color: var(--color-enterprise-text-muted);
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 600;
@@ -225,9 +226,9 @@
 }
 
 .lang-btn.active {
-  background-color: var(--color-enterprise-card);
+  background-color: var(--color-enterprise-navy);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--color-enterprise-navy);
 }
 
 /* Enterprise Buttons */
@@ -262,7 +263,7 @@
   justify-content: center;
   gap: 0.5rem;
   background-color: var(--color-enterprise-slate);
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   font-weight: 600;
   font-size: 0.875rem;
   padding-inline: 1.125rem;
@@ -345,7 +346,7 @@
   line-height: 1.2;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   margin: 0;
   margin-block-end: 1rem;
 }
@@ -384,7 +385,7 @@
   line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   margin: 0;
   margin-block-end: 1.5rem;
 }
@@ -398,7 +399,7 @@
 .hero-subheadline {
   font-size: 1.125rem;
   line-height: 1.75;
-  color: #cbd5e1;
+  color: var(--color-enterprise-text-muted);
   margin: 0;
   margin-block-end: 2rem;
 }
@@ -451,7 +452,7 @@
   padding-block: 0.4375rem;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--color-enterprise-text-main);
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
@@ -673,7 +674,7 @@
 }
 
 .catalog-tab-btn:hover {
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
 }
 
 .catalog-tab-btn.active {
@@ -711,7 +712,7 @@
   background-color: var(--color-enterprise-card-hover);
   border-color: rgba(255, 153, 0, 0.5);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
 }
 
 .catalog-card-header {
@@ -741,7 +742,7 @@
   padding-block: 0.1875rem;
   border-radius: 4px;
   background-color: rgba(37, 99, 235, 0.12);
-  color: #60a5fa;
+  color: #1d4ed8;
   border: 1px solid rgba(37, 99, 235, 0.3);
   font-weight: 700;
 }
@@ -749,7 +750,7 @@
 .catalog-card-title {
   font-size: 1.1875rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   margin: 0;
   margin-block-end: 0.625rem;
 }
@@ -785,7 +786,7 @@
 }
 
 .catalog-card-action:hover {
-  color: #ffffff;
+  color: var(--color-enterprise-blue-hover);
 }
 
 /* Regional Infrastructure Section */
@@ -825,7 +826,7 @@
 .infra-node-name {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
 }
 
 .infra-node-latency {
@@ -900,7 +901,7 @@
 .solution-headline {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   margin: 0;
   margin-block-end: 0.875rem;
 }
@@ -929,7 +930,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  color: #e2e8f0;
+  color: var(--color-enterprise-text-muted);
 }
 
 /* Pricing Section (Cloudscape Style) */
@@ -997,7 +998,7 @@
 
 .currency-toggle-btn.active {
   background-color: var(--color-enterprise-card-hover);
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
 }
 
 .pricing-grid {
@@ -1020,7 +1021,7 @@
 
 .pricing-card.featured {
   border-color: var(--color-enterprise-orange);
-  background-color: #1a2538;
+  background-color: #fff8ef;
   box-shadow: 0 0 30px var(--color-enterprise-orange-glow);
 }
 
@@ -1037,7 +1038,7 @@
   padding-inline: 0.875rem;
   padding-block: 0.1875rem;
   border-radius: 3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
 }
 
 [dir="rtl"] .popular-badge {
@@ -1047,7 +1048,7 @@
 .plan-name {
   font-size: 1.25rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   margin: 0;
   margin-block-end: 0.5rem;
 }
@@ -1069,7 +1070,7 @@
 .price-val {
   font-size: 2.375rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   letter-spacing: -0.02em;
 }
 
@@ -1106,7 +1107,7 @@
   align-items: flex-start;
   gap: 0.625rem;
   font-size: 0.8125rem;
-  color: #e2e8f0;
+  color: var(--color-enterprise-text-muted);
   line-height: 1.5;
 }
 
@@ -1136,7 +1137,7 @@
 .charter-bar-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   margin: 0;
 }
 
@@ -1232,7 +1233,7 @@
   justify-content: space-between;
   gap: 1rem;
   text-align: start;
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
@@ -1258,7 +1259,7 @@
 
 /* Public Footer (Enterprise Style Mega Footer) */
 .public-footer {
-  background-color: #070c18;
+  background-color: #f6f8fb;
   padding-block: 4.5rem 2.5rem;
   padding-inline: 1.25rem;
   border-top: 1px solid var(--color-enterprise-border);
@@ -1314,7 +1315,7 @@
 }
 
 .footer-link:hover {
-  color: #ffffff;
+  color: var(--color-enterprise-navy);
 }
 
 .footer-compliance-box {
@@ -1437,8 +1438,8 @@
   z-index: 1;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(11, 19, 43, 0.85) 0%, rgba(11, 19, 43, 0.35) 55%, rgba(11, 19, 43, 0.6) 100%),
-    linear-gradient(0deg, rgba(11, 19, 43, 0.9) 0%, transparent 40%);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.25) 55%, rgba(255, 255, 255, 0.55) 100%),
+    linear-gradient(0deg, #ffffff 0%, transparent 40%);
 }
 
 .hero-wrapper .section-container {
@@ -1463,10 +1464,10 @@
 .public-root {
   position: relative;
   background-image:
-    radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.10) 0%, transparent 42%),
-    radial-gradient(circle at 88% 26%, rgba(236, 114, 17, 0.07) 0%, transparent 40%),
-    radial-gradient(circle at 50% 110%, rgba(16, 185, 129, 0.06) 0%, transparent 46%),
-    radial-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+    radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.06) 0%, transparent 42%),
+    radial-gradient(circle at 88% 26%, rgba(236, 114, 17, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 50% 110%, rgba(5, 150, 105, 0.05) 0%, transparent 46%),
+    radial-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 26px 26px;
   background-attachment: fixed;
 }
@@ -1509,4 +1510,15 @@
   .console-widget-card:hover {
     transform: none;
   }
+}
+
+/* The hero console/terminal is a deliberate dark asset on the light page.
+   Re-scoping the variables here keeps every descendant dark regardless of the
+   page theme. */
+.console-widget-card {
+  --color-enterprise-card: #16202f;
+  --color-enterprise-card-hover: #1d2a3d;
+  --color-enterprise-border: #2a3649;
+  --color-enterprise-text-muted: #94a3b8;
+  --color-enterprise-text-main: #f1f5f9;
 }

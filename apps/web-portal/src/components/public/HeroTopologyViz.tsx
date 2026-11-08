@@ -49,7 +49,7 @@ export function HeroTopologyViz() {
         </defs>
 
         {/* Receding perspective floor grid */}
-        <g className="viz-grid-group" stroke="#1e3a5f" strokeWidth="1" opacity="0.5">
+        <g className="viz-grid-group" stroke="#c9d6e6" strokeWidth="1" opacity="0.9">
           <polygon
             points="0,640 320,470 880,470 1200,640"
             fill="url(#viz-arc)"
@@ -124,7 +124,7 @@ export function HeroTopologyViz() {
         </g>
 
         {/* Node labels */}
-        <g className="viz-labels" fill="#cbd5e1" fontFamily="SFMono-Regular, Consolas, monospace" fontSize="12">
+        <g className="viz-labels" fill="#475569" fontFamily="SFMono-Regular, Consolas, monospace" fontSize="12">
           <text x="268" y="248">Kabul</text>
           <text x="208" y="418">Herat</text>
           <text x="358" y="538">Mazar</text>

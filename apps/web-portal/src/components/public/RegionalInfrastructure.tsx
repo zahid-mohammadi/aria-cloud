@@ -60,7 +60,7 @@ export function RegionalInfrastructure({ t }: RegionalInfrastructureProps) {
           {/* Active Nodes List */}
           <div className="infra-nodes-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 800, fontSize: '1rem', color: '#ffffff' }}>
+              <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-enterprise-navy)' }}>
                 Active Regional POPs & Gateways
               </span>
               <span className="status-dot-active" aria-hidden="true" />
