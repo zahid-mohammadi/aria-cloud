@@ -41,6 +41,16 @@ export function PortalAppShell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, setActiveNavHref]);
 
+  const isPublicOrAuth =
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/forgot' ||
+    pathname === '/reset';
+
+  if (isPublicOrAuth) {
+    return <>{children}</>;
+  }
+
   const currentBreadcrumbText =
     activeNavHref === '/ai-studio'
       ? t.nav.aiStudioHeader

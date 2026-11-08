@@ -8,7 +8,7 @@ import { SESSION_COOKIE } from '@aria-cloud/auth/constants';
  * validation in each route, because middleware runs on the edge runtime and
  * cannot reach PostgreSQL.
  */
-const PUBLIC_PAGES = ['/login', '/forgot', '/reset'];
+const PUBLIC_PAGES = ['/', '/login', '/forgot', '/reset'];
 const PUBLIC_API = [
   '/api/auth/login',
   '/api/auth/logout',
