@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-session';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const ASSETS_BUCKET = process.env.PUBLIC_ASSETS_BUCKET || 'ariacloud-public-assets';
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     const {
-      tenantId = 'tnt_herat_saffron_01',
       subdomainSlug = 'kabul-saffron',
       prompt = 'فروشگاه آنلاین زعفران سوپر نگین هرات، جلغوزه خوست و عسل کوهی با درگاه حساب‌پی',
       primaryLocale = 'fa',
       theme = 'emerald_bazaar',
       whatsappPhone = '+93700123456',
     } = body;
+
+    const tenantId = auth.session.tenantId;
 
     const cleanSlug = String(subdomainSlug)
       .trim()

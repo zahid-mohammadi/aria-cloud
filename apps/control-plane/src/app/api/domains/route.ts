@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-session';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const RESERVED_SLUGS = new Set([
@@ -15,8 +16,13 @@ const RESERVED_SLUGS = new Set([
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
-    const { action, tenantId, subdomainSlug, customDomain, mailboxLocalPart } = body;
+    const { action, subdomainSlug, customDomain, mailboxLocalPart } = body;
+    // Admins may act on a specific tenant; otherwise scope to their own.
+    const tenantId = (body.tenantId as string | undefined) || auth.session.tenantId;
 
     if (!tenantId) {
       return NextResponse.json(

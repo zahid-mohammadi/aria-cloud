@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-session';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { withTenantContext } from '@aria-cloud/database';
 
@@ -8,9 +9,11 @@ const bedrock = new BedrockRuntimeClient({
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     const {
-      tenantId = '00000000-0000-0000-0000-000000000001',
       prompt,
       negativePrompt,
       width = 1024,
@@ -18,6 +21,8 @@ export async function POST(req: NextRequest) {
       quality = 'standard',
       cfgScale = 7.0,
     } = body;
+
+    const tenantId = auth.session.tenantId;
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 3) {
       return NextResponse.json(

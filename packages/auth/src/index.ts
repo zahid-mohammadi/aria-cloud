@@ -152,9 +152,11 @@ export async function createSession(input: {
   tenantId: string;
   ipAddress?: string | null;
   userAgent?: string | null;
+  /** Override the 7-day default — admin sessions use 8 hours. */
+  ttlSeconds?: number;
 }): Promise<{ token: string; expiresAt: Date }> {
   const token = generateToken();
-  const expiresAt = sessionExpiry();
+  const expiresAt = new Date(Date.now() + (input.ttlSeconds ?? SESSION_TTL_SECONDS) * 1000);
 
   await pool.query(
     `INSERT INTO sessions (id, user_id, tenant_id, token_hash, expires_at, ip_address, user_agent)

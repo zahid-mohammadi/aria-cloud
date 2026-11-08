@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-session';
 import { getTenantOverview, withTenantContext } from '@aria-cloud/database';
 
 export async function GET(req: NextRequest) {
-  const tenantId =
-    req.nextUrl.searchParams.get('tenantId') || '00000000-0000-0000-0000-000000000001';
+  const auth = await requireAdmin();
+  if (auth.response) return auth.response;
+
+  const tenantId = req.nextUrl.searchParams.get('tenantId') || auth.session.tenantId;
 
   if (process.env.DATABASE_URL) {
     try {
@@ -35,14 +38,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     const {
-      tenantId = '00000000-0000-0000-0000-000000000001',
       action,
       otpCode,
       packCredits = 50000,
       amountAfn = 350,
     } = body;
+
+    const tenantId = auth.session.tenantId;
 
     if (action === 'redeem_hawala_otp') {
       if (!otpCode || !/^\d{6}$/.test(String(otpCode))) {

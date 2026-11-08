@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-session';
 import { withTenantContext } from '@aria-cloud/database';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     const {
-      tenantId = '00000000-0000-0000-0000-000000000001',
       text,
       voiceId = 'EXAVITQu4vr4xnSDxMaL',
       modelId = 'eleven_multilingual_v2',
       stability = 0.5,
       similarityBoost = 0.75,
     } = body;
+
+    const tenantId = auth.session.tenantId;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json({ error: 'Text payload is required.' }, { status: 400 });

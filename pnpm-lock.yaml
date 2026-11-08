@@ -10,6 +10,9 @@ importers:
 
   apps/control-plane:
     dependencies:
+      '@aria-cloud/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@aria-cloud/database':
         specifier: workspace:*
         version: link:../../packages/database
