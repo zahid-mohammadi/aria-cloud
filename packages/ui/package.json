@@ -1,0 +1,22 @@
+{
+  "name": "@aria-cloud/ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AriaCloud Shared UI & Trilingual RTL/LTR Localization Engine",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./i18n/translations": "./src/i18n/translations.ts",
+    "./i18n/LanguageContext": "./src/i18n/LanguageContext.tsx"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

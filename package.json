@@ -2,16 +2,21 @@
   "name": "aria-cloud",
   "version": "1.0.0",
   "private": true,
-  "description": "AriaCloud (ariacloudservices.org) — Afghan Digital Enablement Initiative: Multi-Tenant Cloud Hosting, Stalwart Mail, Financial Settlement, AI Storefront Builder & Multimodal AI Studio",
+  "description": "AriaCloud (ariacloudservices.org) — Afghan Digital Enablement Initiative: Multi-Tenant Sovereign Cloud Hosting, Aria Cloud Mail, Financial Settlement, AI Storefront Builder & Multimodal AI Studio",
   "workspaces": [
     "apps/*",
     "packages/*",
     "services/*"
   ],
   "scripts": {
+    "build": "node scripts/audit-whitelabel.js && npm --prefix apps/web-portal run build",
+    "audit:whitelabel": "node scripts/audit-whitelabel.js",
+    "dev:portal": "npm --prefix apps/web-portal run dev",
+    "build:portal": "npm --prefix apps/web-portal run build",
+    "typecheck:portal": "npm --prefix apps/web-portal run typecheck",
     "dev:console": "npm --prefix apps/control-plane run dev",
     "build:console": "npm --prefix apps/control-plane run build",
-    "typecheck": "npm --prefix apps/control-plane run typecheck"
+    "typecheck": "npm --prefix apps/web-portal run typecheck"
   },
   "engines": {
     "node": ">=20.0.0"

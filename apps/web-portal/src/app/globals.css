@@ -1,0 +1,63 @@
+/* AriaCloud Enterprise Design System Global Styles & Trilingual Typography */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Open Sans', 'Helvetica Neue', Roboto, Arial, 'Vazirmatn', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-sans {
+  font-family: 'Open Sans', 'Helvetica Neue', Roboto, Arial, sans-serif;
+}
+
+.font-vazir,
+html[dir='rtl'] body,
+html[dir='rtl'] button,
+html[dir='rtl'] input {
+  font-family: 'Vazirmatn', 'Open Sans', Roboto, Arial, sans-serif;
+  line-height: 1.65;
+}
+
+/* Logical CSS properties for bidirectional RTL/LTR mirroring */
+.text-start {
+  text-align: start;
+}
+.text-end {
+  text-align: end;
+}
+.ms-2 {
+  margin-inline-start: 0.5rem;
+}
+.me-2 {
+  margin-inline-end: 0.5rem;
+}
+.ms-4 {
+  margin-inline-start: 1rem;
+}
+.me-4 {
+  margin-inline-end: 1rem;
+}
+.ps-3 {
+  padding-inline-start: 0.75rem;
+}
+.pe-3 {
+  padding-inline-end: 0.75rem;
+}
+.ps-4 {
+  padding-inline-start: 1rem;
+}
+.pe-4 {
+  padding-inline-end: 1rem;
+}
+.start-0 {
+  inset-inline-start: 0;
+}
+.end-0 {
+  inset-inline-end: 0;
+}
+
+code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.9em;
+}
