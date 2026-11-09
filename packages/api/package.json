@@ -1,0 +1,22 @@
+{
+  "name": "@aria-cloud/api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared route business logic (AI studio, storefront, domains) used by both consoles",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aria-cloud/database": "workspace:*",
+    "@aria-cloud/domain-provisioner": "workspace:*",
+    "@aria-cloud/site-builder": "workspace:*",
+    "@aws-sdk/client-bedrock-runtime": "^3.682.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.3"
+  }
+}

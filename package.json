@@ -22,7 +22,7 @@
     "user:create": "pnpm --filter @aria-cloud/auth create-user",
     "verify": "node scripts/verify/index.mjs",
     "verify:full": "pnpm build:packages && pnpm build:services && node scripts/verify/index.mjs",
-    "build:services": "pnpm -r --filter \"./services/**\" run build",
+    "build:services": "pnpm -r --filter \"./services/**\" run build && pnpm --filter @aria-cloud/api build",
     "agent:create": "pnpm --filter @aria-cloud/billing create-agent"
   },
   "engines": {

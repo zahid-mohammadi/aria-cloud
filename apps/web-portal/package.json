@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aria-cloud/api": "workspace:*",
     "@aria-cloud/auth": "workspace:*",
     "@aria-cloud/database": "workspace:*",
     "@aria-cloud/domain-provisioner": "workspace:*",

@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aria-cloud/api": "workspace:*",
     "@aria-cloud/auth": "workspace:*",
     "@aria-cloud/database": "workspace:*",
     "@aws-sdk/client-bedrock-runtime": "^3.682.0",
