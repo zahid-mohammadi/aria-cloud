@@ -137,6 +137,7 @@ export interface UniversalSiteSchema {
   hero: UniversalSiteHero;
   operatingHours: OperatingHours;
   theme: 'emerald' | 'lapis' | 'saffron' | 'slate' | 'teal' | 'crimson';
+  layout: 'aurora' | 'minimal' | 'editorial';
   // Sector-specific modules
   clinic?: {
     doctors: DoctorProfile[];

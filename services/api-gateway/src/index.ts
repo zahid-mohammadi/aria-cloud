@@ -31,7 +31,7 @@ import {
   provisionMerchantSubdomain,
   provisionStalwartMailbox,
 } from '@aria-cloud/domain-provisioner';
-import { buildAndPublishStorefront } from '@aria-cloud/site-builder';
+import { generateUniversalSite } from '@aria-cloud/site-builder';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 const PRIMARY_REGION = process.env.SES_REGION || 'me-central-1';
@@ -267,20 +267,20 @@ export async function handleApiGatewayRequest(
           });
         }
 
-        const built = await buildAndPublishStorefront({
+        const built = await generateUniversalSite({
           tenantId,
           subdomainSlug: slug,
+          industry: 'retail',
           prompt: promptText,
-          primaryLocale: 'fa',
-          theme: 'emerald_bazaar',
-          whatsappPhone: senderPhone,
+          layout: 'aurora',
+          theme: 'emerald',
         });
 
         return jsonResponse(200, {
           status: 'storefront_published_via_whatsapp',
           senderPhone,
           liveUrl: built.liveUrl,
-          fqdn: built.fqdn,
+          fqdn: `${built.subdomainSlug}.ariacloudservices.org`,
           replyPreview: `تبریک! فروشگاه آنلاین شما ساخته شد و هم‌اکنون در آدرس ${built.liveUrl} فعال است.`,
         });
       }
@@ -389,17 +389,25 @@ export async function handleApiGatewayRequest(
       const claims = await authenticate(req.headers);
       const body = JSON.parse(req.rawBody || '{}');
 
-      const result = await buildAndPublishStorefront({
+      const result = await generateUniversalSite({
         tenantId: claims.tenantId,
         subdomainSlug: body.subdomainSlug || 'kabul-saffron',
+        industry: body.industry || 'retail',
         prompt: body.prompt || 'فروشگاه آنلاین زعفران و خشکبار افغانستان',
-        primaryLocale: body.primaryLocale || claims.locale || 'fa',
-        theme: body.theme || 'emerald_bazaar',
-        whatsappPhone: body.whatsappPhone,
+        layout: body.layout,
+        theme: body.theme,
         publishToS3: Boolean(body.publishToS3),
       });
 
-      return jsonResponse(200, result);
+      return jsonResponse(200, {
+        siteId: result.siteId,
+        industry: result.industry,
+        subdomainSlug: result.subdomainSlug,
+        liveUrl: result.liveUrl,
+        s3Path: result.s3Path,
+        layout: result.schema.layout,
+        theme: result.schema.theme,
+      });
     }
 
     return jsonResponse(404, {

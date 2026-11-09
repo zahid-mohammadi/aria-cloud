@@ -37,7 +37,8 @@ export default function StoreBuilderPage() {
     useState<string>('Kabul Saffron Co.');
   const [whatsappPhone, setWhatsappPhone] = useState<string>('+93700123456');
   const [hesabPayId, setHesabPayId] = useState<string>('HP-KABUL-9921');
-  const [palette, setPalette] = useState<string>('emerald-gold');
+  const [palette, setPalette] = useState<string>('emerald');
+  const [layout, setLayout] = useState<string>('aurora');
   const [storePrompt, setStorePrompt] = useState<string>(
     t.canvasModal.promptDefault
   );
@@ -65,11 +66,11 @@ export default function StoreBuilderPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subdomainSlug,
-          businessName,
           prompt: storePrompt,
-          palette,
+          theme: palette,
+          layout,
+          industry: 'retail',
           whatsappPhone,
-          hesabPayMerchantId: hesabPayId,
         }),
       });
       const data = await res.json();
@@ -167,19 +168,28 @@ export default function StoreBuilderPage() {
                       placeholder={t.appTitle}
                     />
                   </FormField>
-                  <FormField label={t.canvasModal.qualityLabel}>
+                  <FormField label="Style (theme)">
                     <Tiles
                       value={palette}
                       onChange={({ detail }) => setPalette(detail.value)}
                       items={[
-                        {
-                          value: 'emerald-gold',
-                          label: 'Emerald & Saffron Gold',
-                        },
-                        {
-                          value: 'lapis-amber',
-                          label: 'Lapis & Amber',
-                        },
+                        { value: 'emerald', label: 'Emerald' },
+                        { value: 'lapis', label: 'Lapis' },
+                        { value: 'saffron', label: 'Saffron' },
+                        { value: 'slate', label: 'Slate' },
+                        { value: 'teal', label: 'Teal' },
+                        { value: 'crimson', label: 'Crimson' },
+                      ]}
+                    />
+                  </FormField>
+                  <FormField label="Layout">
+                    <Tiles
+                      value={layout}
+                      onChange={({ detail }) => setLayout(detail.value)}
+                      items={[
+                        { value: 'aurora', label: 'Aurora (bold hero)' },
+                        { value: 'minimal', label: 'Minimal (clean)' },
+                        { value: 'editorial', label: 'Editorial (serif)' },
                       ]}
                     />
                   </FormField>

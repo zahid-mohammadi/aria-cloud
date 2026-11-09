@@ -35,6 +35,9 @@ export interface GenerateUniversalSiteInput {
   prompt: string;
   customDomain?: string;
   publishToS3?: boolean;
+  /** Override the generated design (defaults to the sector blueprint's). */
+  layout?: UniversalSiteSchema['layout'];
+  theme?: UniversalSiteSchema['theme'];
 }
 
 export interface GenerateUniversalSiteResult {
@@ -68,6 +71,10 @@ export async function generateUniversalSite(
     input.prompt,
     input.customDomain
   );
+
+  // Allow an explicit design choice to override the generated/blueprint default.
+  if (input.layout) schema.layout = input.layout;
+  if (input.theme) schema.theme = input.theme;
 
   // Step 2: Claim the subdomain, then compile. The S3 key must match the
   // CloudFront function's /tenants/<subdomain>/... rewrite, otherwise the
@@ -180,6 +187,7 @@ function coerceString(value: unknown, fallback: string): string {
 }
 
 const THEMES = ['emerald', 'lapis', 'saffron', 'slate', 'teal', 'crimson'];
+const LAYOUTS = ['aurora', 'minimal', 'editorial'];
 
 /**
  * Merges untrusted LLM output over a deterministic baseline so the compiler
@@ -199,10 +207,12 @@ export function sanitizeSiteSchema(
   const wa = p.whatsappCta && typeof p.whatsappCta === 'object' ? p.whatsappCta : {};
 
   const theme = THEMES.includes(p.theme) ? (p.theme as UniversalSiteSchema['theme']) : baseline.theme;
+  const layout = LAYOUTS.includes(p.layout) ? (p.layout as UniversalSiteSchema['layout']) : baseline.layout;
 
   return {
     ...baseline,
     theme,
+    layout,
     header: {
       ...baseline.header,
       businessName: coerceLocalized(h.businessName, baseline.header.businessName),
@@ -371,6 +381,7 @@ export function createSectorBlueprint(
       },
     },
     theme: 'emerald',
+    layout: 'aurora',
     whatsappCta: {
       phoneNumber: '+93700123456',
       prefilledMessage: {

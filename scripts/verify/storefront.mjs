@@ -21,7 +21,7 @@ export async function run() {
   const database = await import(path.join(ROOT, 'packages/database/dist/index.js'));
   const site = await import(path.join(ROOT, 'services/site-builder/dist/index.js'));
 
-  // ---------------------------------------------------------------- Alpine page
+  // ------------------------------------------------- universal compiler page
   const schema = site.createSectorBlueprint('clinic', 'xss-clinic', '', undefined);
   const scriptPayload = `</script><script>alert('xss')</script>`;
   const attrPayload = `Kabul's "best" <img src=x onerror=alert(1)>`;
@@ -34,12 +34,14 @@ export async function run() {
   const html = site.compileUniversalSiteHtml(schema);
 
   check('no raw </script> breakout from data', !html.includes('</script><script>alert'));
-  check('schema moved into a JSON data block', html.includes('<script type="application/json" id="aria-schema">'));
-  check('Alpine no longer inlines schema in an attribute', html.includes('x-data="ariaSite()"'));
-  check('no x-data attribute quoting the schema', !html.includes("x-data='ariaSite("));
-  check('payload is escaped inside the JSON block', html.includes('\\u003c/script'));
   check('no raw onerror attribute from data', !html.includes('<img src=x onerror'));
-  check('page still contains the app script', html.includes('function ariaSite()'));
+  check('payload is HTML-escaped in markup', html.includes('&lt;script&gt;'));
+  check('self-contained: no Tailwind CDN', !html.includes('cdn.tailwindcss.com'));
+  check('self-contained: no Alpine CDN', !html.includes('cdn.jsdelivr.net'));
+  check('no schema JSON inlined into the page', !html.includes('application/json'));
+  check('page declares layout + language', html.includes('data-layout="aurora"') && html.includes('data-lang="fa"'));
+  check('trilingual spans rendered', html.includes('i18n-fa') && html.includes('i18n-ps') && html.includes('i18n-en'));
+  check('language switcher present', html.includes('data-setlang="fa"') && html.includes('data-setlang="en"'));
 
   // ------------------------------------------------------------ storefront page
   const blueprint = await site.generateStorefrontBlueprint({
@@ -117,14 +119,16 @@ export async function run() {
   check('sanitize: string businessName coerced to all locales',
     malformed.header.businessName.fa === 'Plain String Co' && malformed.header.businessName.ps === 'Plain String Co' && malformed.header.businessName.en === 'Plain String Co');
   check('sanitize: invalid theme rejected', malformed.theme === baseline.theme);
+  check('sanitize: invalid layout rejected', malformed.layout === baseline.layout);
   check('sanitize: missing hero falls back to baseline', malformed.hero.headline.fa === baseline.hero.headline.fa);
   check('sanitize: clinic module preserved from baseline', Array.isArray(malformed.clinic?.doctors) && malformed.clinic.doctors.length >= 2);
 
   const partial = site.sanitizeSiteSchema(
-    { header: { businessName: { fa: 'کابل', ps: 'کابل', en: 'Kabul' } } },
+    { header: { businessName: { fa: 'کابل', ps: 'کابل', en: 'Kabul' } }, layout: 'editorial' },
     baseline
   );
   check('sanitize: valid localized override applied', partial.header.businessName.en === 'Kabul' && partial.header.businessName.fa === 'کابل');
+  check('sanitize: valid layout override applied', partial.layout === 'editorial');
 
   return failures();
 }
