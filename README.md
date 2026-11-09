@@ -43,6 +43,7 @@ packages/ui          Shared i18n + design tokens
 - **Auth** uses email + scrypt-hashed passwords, server-side sessions (SHA-256 token hashes), single-use reset tokens, and an append-only admin audit log.
 - **Webhooks** (HesabPay, Meta) fail closed — a missing secret rejects the request, never accepts it unsigned.
 - **Money** is integer minor units (AFN pul / USD cents) in a balanced double-entry ledger.
+- **Third-party code** (the app runner) has its own security model — see [docs/app-runner-security-model.md](docs/app-runner-security-model.md). It must not run untrusted workloads until that model is implemented.
 
 ## Running locally
 
