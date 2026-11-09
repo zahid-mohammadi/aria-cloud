@@ -123,15 +123,40 @@ none are configured.
 It gives per-task IAM, security groups (network isolation), and capacity
 providers for scale-to-zero, without the operational weight of Kubernetes.
 
-## 5. Decisions needed before implementation
+## 5. Decisions — resolved
 
-1. **Deploy model:** image-push only, source-build only, or both?
-2. **Registry:** confirm private ECR as the only source of truth.
-3. **Egress:** fully deny-by-default (simplest, safest), or per-tenant allowlist?
-4. **Tenant databases:** do tenant apps get their own Postgres, and who provisions it?
-5. **Runtime:** ECS/Fargate vs staying on App Runner vs EKS?
+1. **Deploy model: both.** Source-build (isolated CodeBuild) and image-push.
+   Both converge on the same private ECR → Fargate path.
+2. **Registry: private ECR**, one namespace per tenant (`aria/<tenantId>/<app>`),
+   images signed (Sigstore/Cosign) and scanned (Trivy). No public images.
+3. **Egress: NAT to the internet, but hard-block private CIDRs (10/8, 172.16/12,
+   192.168/16) and the metadata endpoint (169.254.169.254).** This lets tenant
+   apps reach external APIs while making the data plane unreachable and
+   preventing credential theft. Per-tenant domain allowlist is a later
+   refinement (AWS Network Firewall).
+4. **Tenant databases: optional, on-demand, per-tenant.** A separate "tenant
+   DB" Postgres (one database per tenant + least-privilege role), DSN injected
+   as a KMS-wrapped secret. Never the platform's RLS database.
+5. **Runtime: ECS on Fargate.** Per-task IAM + security groups + scale-to-zero.
+   App Runner remains dev-only.
 
-## 6. Acceptance checklist (before "production")
+## 6. Target architecture
+
+```
+tenant source (git)  -- isolated CodeBuild -->  signed+scanned  -->  private ECR
+tenant image (push)  ------------------------>  signed+scanned  -->  private ECR
+                                                                        |
+                                                                        v
+                            ECS/Fargate task (per-tenant IAM + SG)
+                            • non-root, read-only rootfs
+                            • egress: NAT only, RFC1918 + IMDS blocked
+                            • secrets injected (KMS), no arbitrary env
+                                        |
+                                        v
+                            edge (WAF/CDN) --> internet
+```
+
+## 7. Acceptance checklist (before "production")
 
 - [ ] Private ECR + image signing + scanning enforced
 - [ ] `environmentVariables` removed from the deploy API
