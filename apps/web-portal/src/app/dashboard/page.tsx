@@ -24,6 +24,7 @@ import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import Link from '@cloudscape-design/components/link';
 import * as awsui from '@cloudscape-design/design-tokens';
 import { useTranslation } from '@aria-cloud/ui';
+import { AccountSummary } from '@/components/AccountSummary';
 
 interface InfraComponentRow {
   id: string;
@@ -206,6 +207,8 @@ export default function DashboardPage() {
 
   return (
     <div dir={dir} className="text-start start-0 end-0">
+      <AccountSummary />
+
       <ContentLayout
         header={
           <SpaceBetween size="m">
