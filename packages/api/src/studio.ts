@@ -231,6 +231,26 @@ export async function generateImage(tenantId: string, input: ImageInput): Promis
   };
 }
 
+async function synthesizeSpeech(text: string): Promise<Buffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/EXAVITQu4vr4xnSDxMaL?output_format=mp3_44100_128`,
+    {
+      method: 'POST',
+      headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+      }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`ElevenLabs TTS error (${res.status}): ${await res.text()}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export interface AssistantInput {
   message: string;
   language?: string;
@@ -291,7 +311,18 @@ export async function chatAssistant(tenantId: string, input: AssistantInput): Pr
   const totalTokens = Number(parsed.usage?.totalTokens ?? 240);
   const ratePer1k = modelId === 'amazon.nova-lite-v1:0' ? 10 : 5;
   const llmCredits = Math.max(1, Math.ceil((totalTokens / 1000) * ratePer1k));
-  const ttsCredits = voiceReply ? Math.ceil(replyText.length * 0.5) : 0;
+  let audioBase64: string | undefined;
+  let ttsCredits = 0;
+  if (voiceReply && process.env.ELEVENLABS_API_KEY) {
+    try {
+      const audioBuffer = await synthesizeSpeech(replyText);
+      audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString('base64')}`;
+      ttsCredits = Math.ceil(replyText.length * 0.5);
+    } catch (err) {
+      console.warn('[assistant] voice reply synthesis failed:', err);
+      ttsCredits = 0;
+    }
+  }
   const totalCredits = llmCredits + ttsCredits;
 
   await withTenantContext(tenantId, async (client) => {
@@ -314,6 +345,7 @@ export async function chatAssistant(tenantId: string, input: AssistantInput): Pr
     mode: 'live',
     assistantName: aiName,
     replyText,
+    audioBase64,
     totalTokens,
     creditsDeducted: totalCredits,
     latencyMs: Date.now() - startTime,
