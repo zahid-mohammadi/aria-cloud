@@ -1,326 +1,254 @@
 'use client';
 
-import React, { useState } from 'react';
-import ContentLayout from '@cloudscape-design/components/content-layout';
-import Header from '@cloudscape-design/components/header';
-import Container from '@cloudscape-design/components/container';
-import Form from '@cloudscape-design/components/form';
-import FormField from '@cloudscape-design/components/form-field';
-import Input from '@cloudscape-design/components/input';
-import Select, { SelectProps } from '@cloudscape-design/components/select';
-import Button from '@cloudscape-design/components/button';
-import SpaceBetween from '@cloudscape-design/components/space-between';
-import Grid from '@cloudscape-design/components/grid';
-import Table from '@cloudscape-design/components/table';
-import StatusIndicator from '@cloudscape-design/components/status-indicator';
-import Badge from '@cloudscape-design/components/badge';
-import Box from '@cloudscape-design/components/box';
-import Flashbar, { FlashbarProps } from '@cloudscape-design/components/flashbar';
-import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
-import Link from '@cloudscape-design/components/link';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useTranslation } from '@aria-cloud/ui';
 
-interface MailboxRow {
-  mailboxId: string;
-  emailAddress: string;
-  quotaMb: number;
-  protocols: string;
-  dkimStatus: string;
+interface Domain {
+  id: string;
+  domain_name: string;
+  is_system_subdomain: boolean;
+  ssl_status: string;
+  dkim_status: string;
+  auto_renew: boolean;
 }
 
-interface DnsRecordRow {
-  type: string;
-  host: string;
-  value: string;
+interface Mailbox {
+  id: string;
+  domain_id: string;
+  email_address: string;
+  quota_mb: number;
+  used_mb: number;
+  is_active: boolean;
+  created_at: string;
 }
 
-const DOMAIN_OPTIONS: SelectProps.Option[] = [
-  {
-    value: 'kabul-saffron.ariacloudservices.org',
-    label: 'kabul-saffron.ariacloudservices.org',
-  },
-  {
-    value: 'ariacloudservices.org',
-    label: 'ariacloudservices.org',
-  },
-];
+const ROOT = 'ariacloudservices.org';
 
-const ARIA_DNS_EMAIL_RECORDS: DnsRecordRow[] = [
-  {
-    type: 'A',
-    host: 'mail.ariacloudservices.org.',
-    value: 'mail-edge.ariacloudservices.org',
-  },
-  {
-    type: 'MX',
-    host: 'ariacloudservices.org.',
-    value: '10 mx.ariacloudservices.org.',
-  },
-  {
-    type: 'TXT (SPF)',
-    host: 'ariacloudservices.org.',
-    value: '"v=spf1 include:spf.ariacloudservices.org ~all"',
-  },
-  {
-    type: 'TXT (DMARC)',
-    host: '_dmarc.ariacloudservices.org.',
-    value:
-      '"v=DMARC1; p=quarantine; rua=mailto:postmaster@ariacloudservices.org; pct=100;"',
-  },
-  {
-    type: 'CNAME (DKIM)',
-    host: 'dkim._domainkey.ariacloudservices.org.',
-    value: 'dkim.ariacloudservices.org.',
-  },
-];
+function dnsGuidance(domain: string) {
+  const d = domain.toLowerCase();
+  return [
+    { type: 'MX', host: `${d}.`, value: `10 mail.${ROOT}.` },
+    { type: 'TXT', host: `${d}.`, value: `"v=spf1 include:amazonses.com ~all"` },
+    { type: 'TXT', host: `_dmarc.${d}.`, value: `"v=DMARC1; p=quarantine; rua=mailto:postmaster@${d}; pct=100;"` },
+    { type: 'CNAME', host: `mail._domainkey.${d}.`, value: `mail.${ROOT}.` },
+  ];
+}
 
 export default function BusinessEmailPage() {
-  const { t, dir } = useTranslation();
+  const { dir } = useTranslation();
+  const [domains, setDomains] = useState<Domain[]>([]);
+  const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState<string | null>(null);
 
-  const [localPart, setLocalPart] = useState<string>('exports');
-  const [selectedDomain, setSelectedDomain] = useState<SelectProps.Option>(
-    DOMAIN_OPTIONS[0]
-  );
-  const [quotaMb, setQuotaMb] = useState<string>('5120');
-  const [provisioning, setProvisioning] = useState<boolean>(false);
+  const [domainId, setDomainId] = useState('');
+  const [localPart, setLocalPart] = useState('sales');
+  const [password, setPassword] = useState('');
+  const [quotaMb, setQuotaMb] = useState('5120');
 
-  const [mailboxes, setMailboxes] = useState<MailboxRow[]>([
-    {
-      mailboxId: 'mbx_kabul_sales01',
-      emailAddress: 'sales@kabul-saffron.ariacloudservices.org',
-      quotaMb: 5120,
-      protocols: 'JMAP / IMAP 993 / SMTP 587',
-      dkimStatus: t.infra.statusConfigured,
-    },
-    {
-      mailboxId: 'mbx_kabul_info02',
-      emailAddress: 'info@kabul-saffron.ariacloudservices.org',
-      quotaMb: 5120,
-      protocols: 'JMAP / IMAP 993 / SMTP 587',
-      dkimStatus: t.infra.statusConfigured,
-    },
-  ]);
-
-  const [flashItems, setFlashItems] = useState<
-    FlashbarProps.MessageDefinition[]
-  >([]);
-
-  const handleProvisionMailbox = async () => {
-    setProvisioning(true);
+  async function load() {
+    setLoading(true);
     try {
-      const res = await fetch('/api/domains', {
+      const res = await fetch('/api/email');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || data?.error || 'Failed to load email.');
+      setDomains(data.domains || []);
+      setMailboxes(data.mailboxes || []);
+      if (!domainId && data.domains?.length) setDomainId(data.domains[0].id);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function provision(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    const domain = domains.find((d) => d.id === domainId);
+    if (!domain) {
+      setError('Select a domain first.');
+      setBusy(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'provision_mailbox',
+          domainId,
+          domainName: domain.domain_name,
           localPart,
-          domain: selectedDomain.value,
+          password,
           quotaMb: Number(quotaMb) || 5120,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t.common.error);
-
-      setMailboxes((prev) => [
-        {
-          mailboxId: data.mailboxId,
-          emailAddress: data.emailAddress,
-          quotaMb: data.quotaMb,
-          protocols: 'JMAP / IMAP 993 / SMTP 587',
-          dkimStatus: t.infra.statusConfigured,
-        },
-        ...prev,
-      ]);
-
-      setFlashItems([
-        {
-          id: data.mailboxId,
-          type: 'success',
-          dismissible: true,
-          onDismiss: () => setFlashItems([]),
-          header: `${t.nav.email} — ${t.common.success}`,
-          content: data.emailAddress,
-        },
-      ]);
-    } catch (err) {
-      setFlashItems([
-        {
-          id: 'err-mbx',
-          type: 'error',
-          dismissible: true,
-          onDismiss: () => setFlashItems([]),
-          header: t.common.error,
-          content: err instanceof Error ? err.message : t.common.error,
-        },
-      ]);
+      if (!res.ok) throw new Error(data?.message || data?.error || 'Provisioning failed.');
+      setOk(`Created ${data.emailAddress}`);
+      setPassword('');
+      setLocalPart('');
+      await load();
+    } catch (e: any) {
+      setError(e.message);
     } finally {
-      setProvisioning(false);
+      setBusy(false);
     }
-  };
+  }
+
+  const selectedDomain = domains.find((d) => d.id === domainId);
 
   return (
-    <div dir={dir} className="text-start start-0 end-0">
-      <ContentLayout
-        header={
-          <SpaceBetween size="m">
-            <Flashbar items={flashItems} />
-            <Header
-              variant="h1"
-              description={t.infra.headerDesc}
-              actions={
-                <Button
-                  iconName="external"
-                  href="https://mail.ariacloudservices.org"
-                  target="_blank"
-                >
-                  mail.ariacloudservices.org
-                </Button>
-              }
-            >
-              {t.nav.email}
-            </Header>
-          </SpaceBetween>
-        }
-      >
-        <SpaceBetween size="l">
-          <Grid
-            gridDefinition={[
-              { colspan: { default: 12, m: 7 } },
-              { colspan: { default: 12, m: 5 } },
-            ]}
-          >
-            <Form
-              actions={
-                <Button
-                  variant="primary"
-                  loading={provisioning}
-                  onClick={handleProvisionMailbox}
-                >
-                  {t.common.save}
-                </Button>
-              }
-            >
-              <Container header={<Header variant="h2">{t.nav.email}</Header>}>
-                <SpaceBetween size="m">
-                  <FormField label={t.nav.email}>
-                    <Input
-                      value={localPart}
-                      onChange={({ detail }) => setLocalPart(detail.value)}
-                      placeholder="sales"
-                    />
-                  </FormField>
-                  <FormField label={t.nav.domains}>
-                    <Select
-                      selectedOption={selectedDomain}
-                      onChange={({ detail }) =>
-                        setSelectedDomain(detail.selectedOption)
-                      }
-                      options={DOMAIN_OPTIONS}
-                    />
-                  </FormField>
-                  <FormField label={t.canvasModal.remainingQuotaLabel}>
-                    <Input
-                      value={quotaMb}
-                      onChange={({ detail }) => setQuotaMb(detail.value)}
-                      inputMode="numeric"
-                    />
-                  </FormField>
-                </SpaceBetween>
-              </Container>
-            </Form>
+    <div dir={dir} className="email">
+      <header className="email-head">
+        <h1>Business email</h1>
+        <Link href="/dashboard" className="email-back">← Dashboard</Link>
+      </header>
 
-            <Container
-              header={<Header variant="h2">{t.infra.headerTitle}</Header>}
-            >
-              <KeyValuePairs
-                columns={1}
-                items={[
-                  {
-                    label: t.infra.colTarget,
-                    value: (
-                      <Link href="https://mail.ariacloudservices.org" external>
-                        https://mail.ariacloudservices.org
-                      </Link>
-                    ),
-                  },
-                  {
-                    label: t.infra.colComponent,
-                    value: (
-                      <Box variant="code">
-                        no-reply@ariacloudservices.org | support@ariacloudservices.org
-                      </Box>
-                    ),
-                  },
-                  {
-                    label: t.infra.colStatus,
-                    value: (
-                      <StatusIndicator type="success">
-                        {t.infra.statusConfigured}
-                      </StatusIndicator>
-                    ),
-                  },
-                ]}
-              />
-            </Container>
-          </Grid>
+      {error && <div className="email-error">{error}</div>}
+      {ok && <div className="email-ok">{ok}</div>}
 
-          <Table
-            header={
-              <Header variant="h2" counter={`(${mailboxes.length})`}>
-                {t.nav.email}
-              </Header>
-            }
-            columnDefinitions={[
-              {
-                id: 'email',
-                header: t.infra.colTarget,
-                cell: (item) => (
-                  <Box variant="code" fontWeight="bold">
-                    {item.emailAddress}
-                  </Box>
-                ),
-              },
-              {
-                id: 'protocols',
-                header: t.infra.colComponent,
-                cell: (item) => <Badge color="blue">{item.protocols}</Badge>,
-              },
-              {
-                id: 'dkim',
-                header: t.infra.colStatus,
-                cell: (item) => (
-                  <StatusIndicator type="success">
-                    {item.dkimStatus}
-                  </StatusIndicator>
-                ),
-              },
-            ]}
-            items={mailboxes}
-          />
+      {loading ? (
+        <p className="email-muted">Loading…</p>
+      ) : domains.length === 0 ? (
+        <div className="email-section">
+          <h2>No domain yet</h2>
+          <p className="email-muted">
+            Business email needs a domain. Connect one first, or build your storefront
+            to get a free <span className="email-mono">.ariacloudservices.org</span> subdomain.
+          </p>
+          <Link href="/store-builder" className="email-link">Build a storefront →</Link>
+        </div>
+      ) : (
+        <>
+          <form className="email-form" onSubmit={provision}>
+            <h2>Create a mailbox</h2>
+            <div className="email-form-grid">
+              <label>
+                Domain
+                <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
+                  {domains.map((d) => (
+                    <option key={d.id} value={d.id}>{d.domain_name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mailbox name
+                <div className="email-inline">
+                  <input value={localPart} onChange={(e) => setLocalPart(e.target.value)} placeholder="sales" />
+                  <span className="email-mono">@{selectedDomain?.domain_name || ROOT}</span>
+                </div>
+              </label>
+              <label>
+                Password
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min 8 characters" />
+              </label>
+              <label>
+                Quota (MB)
+                <input type="number" value={quotaMb} onChange={(e) => setQuotaMb(e.target.value)} />
+              </label>
+            </div>
+            <button type="submit" className="email-btn" disabled={busy || !password || !localPart}>
+              {busy ? 'Creating…' : 'Create mailbox'}
+            </button>
+          </form>
 
-          <Table
-            header={<Header variant="h3">{t.nav.domains}</Header>}
-            columnDefinitions={[
-              {
-                id: 'type',
-                header: t.infra.colComponent,
-                cell: (item) => <Badge color="grey">{item.type}</Badge>,
-              },
-              {
-                id: 'host',
-                header: t.infra.colTarget,
-                cell: (item) => <Box variant="code">{item.host}</Box>,
-              },
-              {
-                id: 'value',
-                header: t.infra.colStatus,
-                cell: (item) => <Box variant="code">{item.value}</Box>,
-              },
-            ]}
-            items={ARIA_DNS_EMAIL_RECORDS}
-          />
-        </SpaceBetween>
-      </ContentLayout>
+          <section className="email-section">
+            <h2>Mailboxes ({mailboxes.length})</h2>
+            {mailboxes.length === 0 ? (
+              <p className="email-muted">No mailboxes yet.</p>
+            ) : (
+              <table className="email-table">
+                <thead><tr><th>Address</th><th>Quota</th><th>Status</th></tr></thead>
+                <tbody>
+                  {mailboxes.map((m) => (
+                    <tr key={m.id}>
+                      <td className="email-mono">{m.email_address}</td>
+                      <td>{(m.used_mb / 1024).toFixed(1)} / {(m.quota_mb / 1024).toFixed(0)} GB</td>
+                      <td><span className={`email-badge ${m.is_active ? 'ok' : 'warn'}`}>{m.is_active ? 'active' : 'disabled'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          <section className="email-section">
+            <h2>Domains</h2>
+            <table className="email-table">
+              <thead><tr><th>Domain</th><th>Type</th><th>SSL</th><th>DKIM</th></tr></thead>
+              <tbody>
+                {domains.map((d) => (
+                  <tr key={d.id}>
+                    <td className="email-mono">{d.domain_name}</td>
+                    <td>{d.is_system_subdomain ? 'System' : 'Custom'}</td>
+                    <td><span className={`email-badge ${d.ssl_status === 'ISSUED' ? 'ok' : 'warn'}`}>{d.ssl_status || 'pending'}</span></td>
+                    <td><span className={`email-badge ${d.dkim_status === 'ACTIVE' ? 'ok' : 'warn'}`}>{d.dkim_status || 'pending'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          {selectedDomain && (
+            <section className="email-section">
+              <h2>DNS records to set at your registrar</h2>
+              <p className="email-muted">Add these once; mail, SPF, DMARC and DKIM then work automatically.</p>
+              <table className="email-table">
+                <thead><tr><th>Type</th><th>Host</th><th>Value</th></tr></thead>
+                <tbody>
+                  {dnsGuidance(selectedDomain.domain_name).map((r) => (
+                    <tr key={r.type + r.host}>
+                      <td><span className="email-badge">{r.type}</span></td>
+                      <td className="email-mono">{r.host}</td>
+                      <td className="email-mono">{r.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </>
+      )}
+
+      <style>{`
+        .email { max-width: 1100px; margin: 0 auto; padding: 24px; color: #16191f; }
+        .email-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .email-head h1 { margin: 0; font-size: 22px; }
+        .email-back, .email-link { color: #ff9900; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .email-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+        .email-ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+        .email-muted { color: #687078; font-size: 13px; margin: 4px 0 0; }
+        .email-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+        .email-section, .email-form { background: #ffffff; border: 1px solid #e3e8ee; border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+        .email-section h2, .email-form h2 { margin: 0 0 14px; font-size: 16px; }
+        .email-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px; }
+        .email-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; color: #687078; }
+        .email-form input, .email-form select { padding: 9px 11px; border: 1px solid #d4d9e0; border-radius: 7px; font-size: 14px; color: #16191f; }
+        .email-inline { display: flex; align-items: center; gap: 8px; }
+        .email-inline input { flex: 1; }
+        .email-btn { background: linear-gradient(135deg,#ff9900,#e68300); color: #fff; border: 0; padding: 11px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
+        .email-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .email-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .email-table th { text-align: start; color: #687078; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid #eef2f6; }
+        .email-table td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
+        .email-table tr:last-child td { border-bottom: 0; }
+        .email-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+        .email-badge.ok { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+        .email-badge.warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+        @media (max-width: 700px) { .email-form-grid { grid-template-columns: 1fr; } }
+      `}</style>
     </div>
   );
 }
