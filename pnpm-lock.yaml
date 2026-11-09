@@ -121,6 +121,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@aria-cloud/app-runner':
+        specifier: workspace:*
+        version: link:../../services/app-runner
       '@aria-cloud/database':
         specifier: workspace:*
         version: link:../database

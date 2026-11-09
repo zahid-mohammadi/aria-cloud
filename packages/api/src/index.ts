@@ -9,4 +9,5 @@ export {
 
 export { buildStorefront, type StorefrontInput } from './site-builder';
 export { provisionDomain, type DomainInput } from './domains';
+export { deployApp, listApps, getApp, pauseApp, resumeApp } from './apps';
 export { ApiError, toHttpError } from './errors';

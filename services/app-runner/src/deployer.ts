@@ -55,6 +55,30 @@ export interface DeploymentRecord {
   latestLogSnippet?: string;
 }
 
+export class NotConfiguredError extends Error {
+  readonly code = 'NOT_CONFIGURED';
+  constructor(message = 'AWS credentials are required to deploy applications.') {
+    super(message);
+    this.name = 'NotConfiguredError';
+  }
+}
+
+export class AppValidationError extends Error {
+  readonly code = 'VALIDATION_ERROR';
+  constructor(message: string) {
+    super(message);
+    this.name = 'AppValidationError';
+  }
+}
+
+export class AppNotFoundError extends Error {
+  readonly code = 'NOT_FOUND';
+  constructor(message: string) {
+    super(message);
+    this.name = 'AppNotFoundError';
+  }
+}
+
 /**
  * Creates or updates a dynamic containerized application deployment.
  */
@@ -72,12 +96,31 @@ export async function deployCustomApp(input: DeployAppInput): Promise<Deployment
   const memoryStr = `${memory} GB`;
   const port = input.port || (input.framework === 'nodejs' ? 3000 : 8080);
 
+  if (cleanAppName.length < 3 || cleanAppName.length > 40) {
+    throw new AppValidationError('appName must be 3–40 letters, numbers or hyphens.');
+  }
+  if (!['nodejs', 'python', 'laravel', 'docker'].includes(input.framework)) {
+    throw new AppValidationError(`Unsupported framework: ${input.framework}`);
+  }
+  if (input.cpu && ![0.25, 0.5, 1.0, 2.0].includes(input.cpu)) {
+    throw new AppValidationError('cpu must be one of 0.25, 0.5, 1.0, 2.0.');
+  }
+  if (input.memory && ![0.5, 1.0, 2.0, 3.0, 4.0].includes(input.memory)) {
+    throw new AppValidationError('memory must be one of 0.5, 1.0, 2.0, 3.0, 4.0 GB.');
+  }
+  if (input.gitRepoUrl && !/^https:\/\//.test(input.gitRepoUrl)) {
+    throw new AppValidationError('gitRepoUrl must be an https:// URL.');
+  }
+
   let serviceArn: string | undefined;
   let deploymentStatus: AppDeploymentStatus = 'deploying';
   let initialLog = `[Aria Sovereign App Engine] Initiating deployment for ${cleanAppName} (${input.framework})...`;
 
-  if (process.env.AWS_ACCESS_KEY_ID) {
-    try {
+  if (!process.env.AWS_ACCESS_KEY_ID) {
+    throw new NotConfiguredError();
+  }
+
+  try {
       // 1. Ensure scale-to-zero / low-cost autoscaling policy
       const autoScalingConfigName = `aria-autoscale-${cleanAppName}`;
       let autoScalingArn: string | undefined;
@@ -86,7 +129,7 @@ export async function deployCustomApp(input: DeployAppInput): Promise<Deployment
         const autoScalingRes = await appRunner.send(
           new CreateAutoScalingConfigurationCommand({
             AutoScalingConfigurationName: autoScalingConfigName,
-            MinSize: 1, // Minimum warm instance
+            MinSize: 0, // Scale to zero
             MaxSize: 2, // Strict cost ceiling
             MaxConcurrency: 100,
           })
@@ -188,21 +231,13 @@ export async function deployCustomApp(input: DeployAppInput): Promise<Deployment
           console.warn('Custom domain association deferred:', domainErr);
         }
       }
-    } catch (sdkErr: any) {
-      console.warn('App Runner SDK invocation failed or fallback engaged:', sdkErr);
-      serviceArn = `arn:aria:sovereign:me-central-1:${input.tenantId}:service/${cleanAppName}`;
-      deploymentStatus = 'running';
-      initialLog = `[Aria Sovereign App Engine] Container containerized successfully in sovereign local sandbox: ${sdkErr.message}`;
+    } catch (sdkErr) {
+      console.error('[app-runner] deployment failed:', sdkErr);
+      throw sdkErr;
     }
-  } else {
-    // Local / Offline mode fallback
-    serviceArn = `arn:aria:sovereign:me-central-1:${input.tenantId}:service/${cleanAppName}`;
-    deploymentStatus = 'running';
-    initialLog = `[Aria Sovereign App Engine] Simulated service runner active on ${effectiveDomain} with ${cpuStr} / ${memoryStr}.`;
-  }
 
   // 5. Persist deployment state to PostgreSQL under strict RLS
-  let deploymentId = 'mock-deployment-id';
+  let deploymentId = '';
   let createdAt = new Date().toISOString();
 
   try {
@@ -240,7 +275,8 @@ export async function deployCustomApp(input: DeployAppInput): Promise<Deployment
       createdAt = dbRes.created_at;
     }
   } catch (dbErr) {
-    console.warn('Database persistence bypassed or failed:', dbErr);
+    console.error('[app-runner] persistence failed:', dbErr);
+    throw dbErr;
   }
 
   const publicUrl = `https://${effectiveDomain}`;
@@ -271,40 +307,20 @@ export async function getAppDeploymentStatus(
   tenantId: string,
   deploymentId: string
 ): Promise<DeploymentRecord> {
-  let dbRow: any = null;
-
-  try {
-    dbRow = await withTenantContext(tenantId, async (client) => {
-      const res = await client.query(
-        `SELECT id, tenant_id, app_name, framework, git_repo_url, app_runner_service_arn,
-                custom_domain, status, allocated_memory_gb, allocated_vcpu, created_at
-         FROM custom_app_deployments
-         WHERE tenant_id = $1 AND id = $2
-         LIMIT 1`,
-        [tenantId, deploymentId]
-      );
-      return res.rows[0];
-    });
-  } catch (dbErr) {
-    console.warn('Database query bypassed:', dbErr);
-  }
+  const dbRow = await withTenantContext(tenantId, async (client) => {
+    const res = await client.query(
+      `SELECT id, tenant_id, app_name, framework, git_repo_url, app_runner_service_arn,
+              custom_domain, status, allocated_memory_gb, allocated_vcpu, created_at
+       FROM custom_app_deployments
+       WHERE tenant_id = $1 AND id = $2
+       LIMIT 1`,
+      [tenantId, deploymentId]
+    );
+    return res.rows[0];
+  });
 
   if (!dbRow) {
-    // Fallback for mocked or non-persisted test runs
-    const fallbackDomain = `app-${deploymentId.slice(0, 8)}.${ROOT_DOMAIN}`;
-    return {
-      id: deploymentId,
-      tenantId,
-      appName: 'app',
-      framework: 'nodejs',
-      status: 'running',
-      allocatedMemoryGb: 1.0,
-      allocatedVcpu: 0.5,
-      publicUrl: `https://${fallbackDomain}`,
-      healthCheckUrl: `https://${fallbackDomain}/health`,
-      createdAt: new Date().toISOString(),
-      latestLogSnippet: '[Aria Sovereign App Engine] Service is active and responding 200 OK.',
-    };
+    throw new AppNotFoundError(`Deployment ${deploymentId} not found.`);
   }
 
   let status: AppDeploymentStatus = dbRow.status as AppDeploymentStatus;
@@ -426,5 +442,41 @@ export async function resumeAppService(
     );
 
     return { success: true, status: 'running' };
+  });
+}
+
+
+/**
+ * Lists a tenant's deployments, most recent first.
+ */
+export async function listAppDeployments(tenantId: string): Promise<DeploymentRecord[]> {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query(
+      `SELECT id, tenant_id, app_name, framework, git_repo_url, app_runner_service_arn,
+              custom_domain, status, allocated_memory_gb, allocated_vcpu, created_at
+       FROM custom_app_deployments
+       WHERE tenant_id = $1
+       ORDER BY created_at DESC`,
+      [tenantId]
+    );
+    return res.rows.map((r) => {
+      const domain = r.custom_domain || `${r.app_name}.${ROOT_DOMAIN}`;
+      return {
+        id: r.id,
+        tenantId: r.tenant_id,
+        appName: r.app_name,
+        framework: r.framework,
+        gitRepoUrl: r.git_repo_url || undefined,
+        serviceArn: r.app_runner_service_arn || undefined,
+        customDomain: domain,
+        status: r.status,
+        allocatedMemoryGb: Number(r.allocated_memory_gb) || 1.0,
+        allocatedVcpu: Number(r.allocated_vcpu) || 0.5,
+        publicUrl: `https://${domain}`,
+        healthCheckUrl: `https://${domain}/health`,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        latestLogSnippet: `[Aria Sovereign App Engine] Service state: ${r.status}.`,
+      };
+    });
   });
 }

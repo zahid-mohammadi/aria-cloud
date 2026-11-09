@@ -13,7 +13,8 @@
     "@aria-cloud/database": "workspace:*",
     "@aria-cloud/domain-provisioner": "workspace:*",
     "@aria-cloud/site-builder": "workspace:*",
-    "@aws-sdk/client-bedrock-runtime": "^3.682.0"
+    "@aws-sdk/client-bedrock-runtime": "^3.682.0",
+    "@aria-cloud/app-runner": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
