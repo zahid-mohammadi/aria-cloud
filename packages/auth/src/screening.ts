@@ -17,6 +17,8 @@ export interface ScreeningResult {
   matchedNames: string[];
   listSize: number;
   source: 'ofac-sdn' | 'none';
+  /** Scored matches from the HTTP API (moov-io/ofac), when available. */
+  matches?: Array<{ name: string; score?: number }>;
 }
 
 let cachedList: string[] | null = null;
@@ -142,10 +144,68 @@ function matchName(input: string, sdnName: string): boolean {
 }
 
 /**
- * Screens a set of names against the configured OFAC SDN list. Any match is
- * `flagged_review` (never `blocked`); a human must confirm before blocking.
+ * Screens names via the moov-io/ofac HTTP service (a self-hosted Go service
+ * that indexes the OFAC SDN + BIS DPL lists and returns scored matches).
+ * Set OFAC_API_URL (e.g. http://localhost:8084) to use it. Best-effort: any
+ * per-name failure is ignored and the CSV matcher is not used as a fallback.
+ */
+async function screenViaApi(names: string[]): Promise<ScreeningResult> {
+  const base = process.env.OFAC_API_URL?.replace(/\/$/, '');
+  if (!base) return { status: 'unscreened', matchedNames: [], listSize: 0, source: 'none' };
+
+  const matches: Array<{ name: string; score?: number }> = [];
+  for (const name of names) {
+    if (!name) continue;
+    try {
+      const res = await fetch(`${base}/search?name=${encodeURIComponent(name)}&limit=5`);
+      if (!res.ok) continue;
+      const data = (await res.json()) as {
+        SDNs?: Array<{ sdnName?: string; match?: number }>;
+        altNames?: Array<{ altName?: string; match?: number }>;
+        deniedPersons?: Array<{ name?: string }>;
+        bisEntities?: Array<{ name?: string; match?: number }>;
+      };
+      for (const sdn of data.SDNs || []) {
+        if (sdn.sdnName) {
+          matches.push({ name: sdn.sdnName, score: typeof sdn.match === 'number' ? sdn.match : undefined });
+        }
+      }
+      for (const alt of data.altNames || []) {
+        if (alt.altName) {
+          matches.push({ name: alt.altName, score: typeof alt.match === 'number' ? alt.match : undefined });
+        }
+      }
+      for (const d of data.deniedPersons || []) {
+        if (d.name) matches.push({ name: d.name });
+      }
+      for (const b of data.bisEntities || []) {
+        if (b.name) matches.push({ name: b.name, score: typeof b.match === 'number' ? b.match : undefined });
+      }
+    } catch {
+      // Ignore per-name failures; report what we could fetch.
+    }
+  }
+
+  const matchedNames = matches.map((m) => m.name);
+  return {
+    status: matchedNames.length > 0 ? 'flagged_review' : 'clear',
+    matchedNames,
+    matches,
+    listSize: -1,
+    source: 'ofac-sdn',
+  };
+}
+
+/**
+ * Screens a set of names. Prefers the moov-io/ofac HTTP service when
+ * OFAC_API_URL is set; otherwise falls back to the local OFAC SDN CSV
+ * (OFAC_LIST_PATH). Any match is `flagged_review` (never `blocked`); a human
+ * must confirm before blocking.
  */
 export async function screenParty(names: string[]): Promise<ScreeningResult> {
+  const viaApi = await screenViaApi(names);
+  if (viaApi.source !== 'none') return viaApi;
+
   const list = await loadOfacList();
   if (list.length === 0) {
     return { status: 'unscreened', matchedNames: [], listSize: 0, source: 'none' };

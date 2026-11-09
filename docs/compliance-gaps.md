@@ -45,13 +45,14 @@ as a checkbox to be added later.
 | Item | Status | Location |
 | :--- | :--- | :--- |
 | `ofac_screening_status` / `ofac_screened_at` columns | **now enforced** — default `'unscreened'`; set by admin or the matcher | `packages/database/migrations/010_...` |
-| In-house OFAC matcher (`screenParty`) | **real** — matches against the official SDN CSV | `packages/auth/src/screening.ts` |
+| In-house OFAC matcher (`screenParty`) | **real** — CSV matcher, or the moov-io/ofac HTTP service when `OFAC_API_URL` is set | `packages/auth/src/screening.ts` |
 | Admin "Screen now" action | **real** — runs the matcher, stores `clear`/`flagged_review`, audits matches | `apps/control-plane/.../api/admin/tenants/route.ts` |
 | Screening at tenant creation | **manual** — admin screens each tenant (or wire the hook into signup) | — |
 | Screening of payers (HesabPay) | **partial** — settlement blocks `blocked` tenants; payer name not provided by the webhook | `services/billing/src/index.ts` |
 | Blocking a `blocked` status tenant at login | **real** — login + session + settlement all refuse `blocked` | `packages/auth/src/index.ts` |
 | SDN list refresh | **script** — `scripts/download-ofac-list.mjs` (run on a schedule) | — |
-| Commercial vendor (aliases, transliteration) | **missing** — in-house matcher is a first line, not a substitute | — |
+| Self-hosted screening service (moov-io/ofac) | **optional** — run `moov/ofac` Docker image, set `OFAC_API_URL`; scored fuzzy matches + BIS DPL + auto-refresh | `packages/auth/src/screening.ts` (`screenViaApi`) |
+| Commercial vendor (World-Check etc., strongest aliasing) | **missing** — still the fallback if counsel requires it | — |
 
 **Reality:** screening is now real but *first-line only*. The in-house matcher
 normalizes names and does token/substring + light fuzzy matching against the
