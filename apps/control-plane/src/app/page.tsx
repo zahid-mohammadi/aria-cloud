@@ -49,6 +49,7 @@ export default function AdminOverviewPage() {
           <p>Multi-tenant infrastructure, AI studio, billing and apps at a glance.</p>
         </div>
         <div className="ov-head-actions">
+          <Link href="/admin/tenants" className="ov-link">Tenants</Link>
           <Link href="/studio" className="ov-link">AI Studio</Link>
           <Link href="/apps" className="ov-link">Application Runner</Link>
           <button className="ov-signout" onClick={signOut}>Sign out</button>
