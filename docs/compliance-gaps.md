@@ -67,9 +67,13 @@ it gives the appearance of screening where none happens.
 | MSB/license awareness or status | **missing** | — |
 | Field-agent cash collection described in customer copy | **real** | `packages/ui/src/i18n/translations.ts:158` |
 
-**Reality:** the money side is *technically* sound (hashing, ledger, OTP) but
-*regulatorily* bare — it is a functioning unlicensed payment network with no KYC and
-no monitoring.
+**Decision (resolved 2026-11-10):** the self-run rails are removed. Field-agent
+cash collection, `hawala`, `voucher` and `bank_transfer` are disabled — enforced
+in code (`services/billing` only accepts the HesabPay webhook), at the data layer
+(`payment_channel` CHECK constraint = `'hesabpay'`), and in the UI/copy. The
+platform is now a **HesabPay merchant** (customer of a licensed transmitter), not
+a money-services business. KYC/AML and sanctions screening remain outstanding
+(see §4).
 
 ### 2.3 Provider terms of service (AWS, Meta, ElevenLabs, HesabPay)
 
@@ -111,7 +115,9 @@ no documented plan for what happens if any one of them terminates service.
   partner) *before* processing real money.
 - Review AWS/Meta/ElevenLabs ToS for Afghan-user restrictions.
 
-**Code (can be done now, does not substitute for legal advice):**
+**Code (does not substitute for legal advice):**
+- ✅ Done — HesabPay is now the only payment rail; cash/hawala/field-agent paths
+  are removed (code + `payment_channel` constraint + copy).
 - Remove or rename the misleading `ofac_screening_status` default so the code does
   not imply screening exists (or wire a real screening hook behind a flag).
 - Add explicit, audited statuses for "unscreened" / "flagged_review" / "blocked" and
