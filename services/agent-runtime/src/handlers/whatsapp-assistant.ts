@@ -170,8 +170,9 @@ async function downloadMetaMediaBuffer(mediaId: string): Promise<Buffer> {
   const metaUrlRes = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
     headers: { Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}` },
   });
-  const { url } = await metaUrlRes.json();
-  const mediaRes = await fetch(url, {
+  const meta = (await metaUrlRes.json()) as { url?: string };
+  if (!meta.url) throw new Error('Meta media URL missing');
+  const mediaRes = await fetch(meta.url, {
     headers: { Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}` },
   });
   return Buffer.from(await mediaRes.arrayBuffer());
@@ -199,6 +200,6 @@ async function transcribeSpeechElevenLabs(audioBuffer: Buffer): Promise<string> 
     throw new Error(`STT Transcription Error (${res.status}): ${errText}`);
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as { text?: string };
   return (data.text || "").trim();
 }

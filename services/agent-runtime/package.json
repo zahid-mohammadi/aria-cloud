@@ -1,0 +1,24 @@
+{
+  "name": "@aria-cloud/agent-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multimodal AI Studio handlers: ElevenLabs voice, Bedrock image, WhatsApp assistant",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.650.0",
+    "@aws-sdk/client-s3": "^3.650.0",
+    "pg": "^8.13.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.10",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.6.3"
+  }
+}

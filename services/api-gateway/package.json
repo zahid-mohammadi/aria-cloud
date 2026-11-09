@@ -11,10 +11,11 @@
     "typecheck": "tsc -p tsconfig.typecheck.json"
   },
   "dependencies": {
+    "@aria-cloud/agent-runtime": "workspace:*",
+    "@aria-cloud/auth": "workspace:*",
     "@aria-cloud/database": "workspace:*",
     "@aria-cloud/domain-provisioner": "workspace:*",
-    "@aria-cloud/site-builder": "workspace:*",
-    "@aria-cloud/auth": "workspace:*"
+    "@aria-cloud/site-builder": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

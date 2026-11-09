@@ -21,7 +21,8 @@ import {
   verifyMetaWebhookSignature,
   verifyTenantJwt,
 } from './crypto-auth';
-import { pool } from '@aria-cloud/database';
+import { pool, withTenantContext } from '@aria-cloud/database';
+import { handleWhatsAppMessage } from '@aria-cloud/agent-runtime';
 // The gateway runs on Node, so it can import the full module (unlike edge
 // middleware, which needs the constants subpath).
 import { resolveSession, SESSION_COOKIE } from '@aria-cloud/auth';
@@ -125,6 +126,21 @@ async function authenticate(
  * Returns null when the number is not linked to an active account, so callers
  * can refuse instead of acting on a placeholder tenant.
  */
+/**
+ * Resolves the tenant owner's user id (used to attribute WhatsApp usage to a
+ * user quota). Runs inside the tenant's RLS context so it works regardless of
+ * whether the connecting role bypasses RLS.
+ */
+async function resolveOwnerUser(tenantId: string): Promise<string | null> {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query<{ id: string }>(
+      `SELECT id FROM users WHERE tenant_id = $1 AND role = 'owner' LIMIT 1`,
+      [tenantId]
+    );
+    return res.rows[0]?.id ?? null;
+  });
+}
+
 async function resolveTenantByPhone(phone: string): Promise<string | null> {
   const digits = phone.replace(/\D/g, '');
   if (!digits) return null;
@@ -269,12 +285,28 @@ export async function handleApiGatewayRequest(
         });
       }
 
+      // Ordinary message → route to the multimodal WhatsApp assistant.
+      const tenantId = await resolveTenantByPhone(senderPhone);
+      if (!tenantId) {
+        return jsonResponse(200, { status: 'sender_not_registered', senderPhone });
+      }
+      const userId = await resolveOwnerUser(tenantId);
+      if (!userId) {
+        return jsonResponse(200, { status: 'no_user_account', senderPhone });
+      }
+
+      try {
+        await handleWhatsAppMessage(msg, { tenantId, userId });
+      } catch (error) {
+        // Always ACK Meta within its window; the assistant logs its own errors.
+        console.error('[whatsapp] assistant error:', error);
+      }
+
       return jsonResponse(200, {
-        status: 'processed_by_aria_assistant',
+        status: 'processed',
         senderPhone,
+        tenantId,
         modality: msgType === 'audio' ? 'voice_to_voice_loop' : 'text_reply',
-        assistantName: process.env.SYSTEM_AI_NAME || 'Aria Assistant',
-        routedTo: 'services/agent-runtime/src/handlers/whatsapp-assistant.ts',
       });
     }
 
