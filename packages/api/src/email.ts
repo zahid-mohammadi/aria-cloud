@@ -1,5 +1,5 @@
 import { withTenantContext } from '@aria-cloud/database';
-import { provisionStalwartMailbox } from '@aria-cloud/domain-provisioner';
+import { provisionStalwartMailbox, resetStalwartMailboxPassword } from '@aria-cloud/domain-provisioner';
 import { ApiError } from './errors';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
@@ -21,7 +21,15 @@ export async function listEmail(tenantId: string) {
         ORDER BY created_at DESC`,
       [tenantId]
     );
-    return { domains: domains.rows, mailboxes: mailboxes.rows };
+    const settings = {
+      imapHost: `mail.${ROOT_DOMAIN}`,
+      smtpHost: `mail.${ROOT_DOMAIN}`,
+      jmapUrl: `https://mail.${ROOT_DOMAIN}/jmap`,
+    };
+    return {
+      domains: domains.rows,
+      mailboxes: mailboxes.rows.map((m) => ({ ...m, ...settings })),
+    };
   });
 }
 
@@ -56,7 +64,7 @@ export async function provisionMailbox(tenantId: string, input: ProvisionMailbox
   }
 
   try {
-    return await provisionStalwartMailbox(
+    const result = await provisionStalwartMailbox(
       tenantId,
       input.domainId,
       cleanLocal,
@@ -64,8 +72,25 @@ export async function provisionMailbox(tenantId: string, input: ProvisionMailbox
       input.password,
       Number(input.quotaMb) || 5120
     );
+    // Return the password exactly once so the admin can hand it to the user.
+    return { ...result, password: input.password };
   } catch (error) {
     throw new ApiError(502, 'MAILBOX_PROVISION_FAILED', (error as Error).message);
+  }
+}
+
+export async function resetMailboxPassword(tenantId: string, mailboxId: string, newPassword: string) {
+  if (!newPassword || newPassword.length < 8) {
+    throw new ApiError(400, 'PASSWORD_TOO_SHORT', 'New password must be at least 8 characters.');
+  }
+  try {
+    await resetStalwartMailboxPassword(tenantId, mailboxId, newPassword);
+    return { ok: true };
+  } catch (error) {
+    if ((error as Error).message.includes('not found')) {
+      throw new ApiError(404, 'MAILBOX_NOT_FOUND', (error as Error).message);
+    }
+    throw new ApiError(502, 'MAILBOX_RESET_FAILED', (error as Error).message);
   }
 }
 

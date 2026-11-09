@@ -355,6 +355,11 @@ export async function provisionCustomDomain(
   };
 }
 
+function hashMailPassword(plainPassword: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return `$6$${salt}$${crypto.pbkdf2Sync(plainPassword, salt, 100000, 64, 'sha512').toString('base64')}`;
+}
+
 /**
  * 3. Stalwart Mail Server JMAP/IMAP/SMTP Mailbox Provisioner
  * Creates a mailbox principal on `mail.ariacloudservices.org` and stores metadata under RLS.
@@ -370,11 +375,7 @@ export async function provisionStalwartMailbox(
   const cleanLocal = localPart.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
   const emailAddress = `${cleanLocal}@${domainName.toLowerCase()}`;
 
-  // Generate salted SHA-512 password hash for Stalwart Directory
-  const salt = crypto.randomBytes(16).toString('hex');
-  const passwordHash = `$6$${salt}$${crypto
-    .pbkdf2Sync(plainPassword, salt, 100000, 64, 'sha512')
-    .toString('base64')}`;
+  const passwordHash = hashMailPassword(plainPassword);
 
   if (STALWART_ADMIN_TOKEN) {
     const response = await fetch(`${STALWART_ADMIN_URL}/api/principal`, {
@@ -423,6 +424,52 @@ export async function provisionStalwartMailbox(
     jmapUrl: `https://mail.${ROOT_DOMAIN}/jmap`,
     quotaMb,
   };
+}
+
+/**
+ * Resets a mailbox password. The platform's email_accounts row is authoritative;
+ * the Stalwart mail server is synced best-effort when an admin token is present.
+ */
+export async function resetStalwartMailboxPassword(
+  tenantId: string,
+  mailboxId: string,
+  plainPassword: string
+): Promise<void> {
+  const row = await withTenantContext(tenantId, async (client) => {
+    const res = await client.query<{ email_address: string }>(
+      `SELECT email_address FROM email_accounts WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [mailboxId, tenantId]
+    );
+    return res.rows[0] ?? null;
+  });
+  if (!row) throw new Error('Mailbox not found.');
+
+  const passwordHash = hashMailPassword(plainPassword);
+
+  if (STALWART_ADMIN_TOKEN) {
+    try {
+      const response = await fetch(
+        `${STALWART_ADMIN_URL}/api/principal/${encodeURIComponent(row.email_address)}`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${STALWART_ADMIN_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secrets: [passwordHash] }),
+        }
+      );
+      if (!response.ok) {
+        console.warn('[mail] Stalwart password sync failed:', response.status, await response.text());
+      }
+    } catch (err) {
+      console.warn('[mail] Stalwart password sync error:', err);
+    }
+  }
+
+  await withTenantContext(tenantId, async (client) => {
+    await client.query(
+      `UPDATE email_accounts SET password_hash = $1 WHERE id = $2 AND tenant_id = $3`,
+      [passwordHash, mailboxId, tenantId]
+    );
+  });
 }
 
 function buildInitialStorefrontHtml(storeTitle: string, fqdn: string): string {

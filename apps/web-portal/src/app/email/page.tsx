@@ -21,6 +21,9 @@ interface Mailbox {
   used_mb: number;
   is_active: boolean;
   created_at: string;
+  imapHost: string;
+  smtpHost: string;
+  jmapUrl: string;
 }
 
 const ROOT = 'ariacloudservices.org';
@@ -43,6 +46,9 @@ export default function BusinessEmailPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
+  const [created, setCreated] = useState<any>(null);
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
 
   const [domainId, setDomainId] = useState('');
   const [localPart, setLocalPart] = useState('sales');
@@ -97,9 +103,35 @@ export default function BusinessEmailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || data?.error || 'Provisioning failed.');
       setOk(`Created ${data.emailAddress}`);
+      setCreated(data);
       setPassword('');
       setLocalPart('');
       await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copy(text: string) {
+    try { await navigator.clipboard.writeText(text); } catch { /* clipboard unavailable */ }
+  }
+
+  async function resetMailbox(mailboxId: string) {
+    if (resetPassword.length < 8) { setError('New password must be at least 8 characters.'); return; }
+    setBusy(true); setError(null); setOk(null);
+    try {
+      const res = await fetch('/api/email', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mailboxId, password: resetPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || data?.error || 'Reset failed.');
+      setOk('Password updated.');
+      setResetId(null);
+      setResetPassword('');
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -118,6 +150,18 @@ export default function BusinessEmailPage() {
 
       {error && <div className="email-error">{error}</div>}
       {ok && <div className="email-ok">{ok}</div>}
+
+      {created && (
+        <div className="email-created">
+          <strong>Mailbox created — save these credentials now</strong>
+          <div className="email-cred"><span>Address</span><code>{created.emailAddress}</code><button onClick={() => copy(created.emailAddress)}>Copy</button></div>
+          <div className="email-cred"><span>Password</span><code>{created.password}</code><button onClick={() => copy(created.password)}>Copy</button></div>
+          <div className="email-cred"><span>IMAP</span><code>{created.imapHost}:993</code></div>
+          <div className="email-cred"><span>SMTP</span><code>{created.smtpHost}:587</code></div>
+          <div className="email-cred"><span>Webmail</span><a href={created.jmapUrl} target="_blank" rel="noopener">{created.jmapUrl}</a></div>
+          <button className="email-btn" onClick={() => setCreated(null)}>Dismiss</button>
+        </div>
+      )}
 
       {loading ? (
         <p className="email-muted">Loading…</p>
@@ -170,13 +214,25 @@ export default function BusinessEmailPage() {
               <p className="email-muted">No mailboxes yet.</p>
             ) : (
               <table className="email-table">
-                <thead><tr><th>Address</th><th>Quota</th><th>Status</th></tr></thead>
+                <thead><tr><th>Address</th><th>Quota</th><th>IMAP / SMTP</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                   {mailboxes.map((m) => (
                     <tr key={m.id}>
                       <td className="email-mono">{m.email_address}</td>
                       <td>{(m.used_mb / 1024).toFixed(1)} / {(m.quota_mb / 1024).toFixed(0)} GB</td>
+                      <td className="email-mono">{m.imapHost}:993 · {m.smtpHost}:587</td>
                       <td><span className={`email-badge ${m.is_active ? 'ok' : 'warn'}`}>{m.is_active ? 'active' : 'disabled'}</span></td>
+                      <td>
+                        {resetId === m.id ? (
+                          <span className="email-reset-row">
+                            <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="new password" />
+                            <button className="email-mini" onClick={() => resetMailbox(m.id)} disabled={busy}>Save</button>
+                            <button className="email-mini" onClick={() => { setResetId(null); setResetPassword(''); }}>Cancel</button>
+                          </span>
+                        ) : (
+                          <button className="email-mini" onClick={() => { setResetId(m.id); setResetPassword(''); }}>Reset password</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -247,6 +303,15 @@ export default function BusinessEmailPage() {
         .email-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
         .email-badge.ok { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
         .email-badge.warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+        .email-created { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .email-created strong { color: #047857; font-size: 14px; }
+        .email-cred { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .email-cred span { color: #687078; font-weight: 700; min-width: 80px; }
+        .email-cred code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #ffffff; padding: 3px 8px; border: 1px solid #d1fae5; border-radius: 6px; }
+        .email-cred a { color: #047857; }
+        .email-cred button, .email-mini { border: 1px solid #d4d9e0; background: #fff; color: #16191f; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .email-reset-row { display: inline-flex; gap: 6px; align-items: center; }
+        .email-reset-row input { padding: 5px 8px; border: 1px solid #d4d9e0; border-radius: 6px; font-size: 12px; width: 130px; }
         @media (max-width: 700px) { .email-form-grid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
