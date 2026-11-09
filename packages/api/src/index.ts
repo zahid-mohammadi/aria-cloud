@@ -2,6 +2,7 @@ export {
   generateVoice,
   generateImage,
   chatAssistant,
+  getAiStudioOverview,
   type VoiceInput,
   type ImageInput,
   type AssistantInput,

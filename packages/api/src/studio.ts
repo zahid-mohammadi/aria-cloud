@@ -321,3 +321,33 @@ export async function chatAssistant(tenantId: string, input: AssistantInput): Pr
     language,
   };
 }
+
+export async function getAiStudioOverview(tenantId: string) {
+  return withTenantContext(tenantId, async (client) => {
+    const w = await client.query(
+      `SELECT credit_balance, monthly_credit_quota, elevenlabs_chars_used_mtd,
+              bedrock_tokens_used_mtd, images_generated_mtd
+         FROM ai_credit_wallets WHERE tenant_id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    const history = await client.query(
+      `SELECT modality, provider, model_id, prompt_preview, units_consumed,
+              credits_deducted, latency_ms, created_at
+         FROM ai_generation_logs WHERE tenant_id = $1
+        ORDER BY created_at DESC LIMIT 25`,
+      [tenantId]
+    );
+    const row = w.rows[0] ?? null;
+    return {
+      credits: Number(row?.credit_balance ?? 0),
+      monthlyQuota: Number(row?.monthly_credit_quota ?? 0),
+      usage: {
+        elevenlabsChars: Number(row?.elevenlabs_chars_used_mtd ?? 0),
+        bedrockTokens: Number(row?.bedrock_tokens_used_mtd ?? 0),
+        images: Number(row?.images_generated_mtd ?? 0),
+      },
+      history: history.rows,
+    };
+  });
+}
+
