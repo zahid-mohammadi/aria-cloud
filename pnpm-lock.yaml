@@ -66,9 +66,18 @@ importers:
       '@aria-cloud/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aria-cloud/domain-provisioner':
+        specifier: workspace:*
+        version: link:../../services/domain-provisioner
+      '@aria-cloud/site-builder':
+        specifier: workspace:*
+        version: link:../../services/site-builder
       '@aria-cloud/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@aws-sdk/client-bedrock-runtime':
+        specifier: ^3.682.0
+        version: 3.1164.0
       '@cloudscape-design/board-components':
         specifier: ^3.0.70
         version: 3.0.245(@cloudscape-design/components@3.0.1410(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)

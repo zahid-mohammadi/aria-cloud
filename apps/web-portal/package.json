@@ -12,7 +12,10 @@
   "dependencies": {
     "@aria-cloud/auth": "workspace:*",
     "@aria-cloud/database": "workspace:*",
+    "@aria-cloud/domain-provisioner": "workspace:*",
+    "@aria-cloud/site-builder": "workspace:*",
     "@aria-cloud/ui": "workspace:*",
+    "@aws-sdk/client-bedrock-runtime": "^3.682.0",
     "@cloudscape-design/board-components": "^3.0.70",
     "@cloudscape-design/components": "^3.0.760",
     "@cloudscape-design/design-tokens": "^3.0.48",

@@ -1,58 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, unauthorized } from '@/lib/session';
+import { buildAndPublishStorefront } from '@aria-cloud/site-builder';
+import { getSession } from '@/lib/session';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) return unauthorized();
+    if (!session) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+
     const body = await req.json();
     const {
-      subdomainSlug = 'kabul-saffron',
-      businessName = 'Kabul Saffron Co.',
-      prompt = 'Grade-A Herat saffron with export packaging and HesabPay checkout',
-      primaryLanguage = 'da',
-      palette = 'emerald-gold',
-      whatsappPhone = '+93700123456',
-      hesabPayMerchantId = 'HP-KABUL-9921',
+      subdomainSlug = 'my-business',
+      prompt = 'فروشگاه آنلاین محصولات افغانی',
+      primaryLocale = 'fa',
+      theme = 'emerald_bazaar',
+      whatsappPhone,
+      publishToS3 = false,
     } = body;
 
-    const cleanSlug =
-      String(subdomainSlug)
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, '-')
-        .replace(/^-+|-+$/g, '') || 'kabul-saffron';
-
-    const rootDomain =
-      process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
-    const liveUrl = `https://${cleanSlug}.${rootDomain}`;
-    const edgeObjectKey = `sites/${cleanSlug}/index.html`;
-    const deploymentId = `dep_${Date.now().toString(36)}`;
+    const result = await buildAndPublishStorefront({
+      tenantId: session.tenantId,
+      subdomainSlug,
+      prompt,
+      primaryLocale,
+      theme,
+      whatsappPhone: whatsappPhone || '+93700123456',
+      publishToS3: Boolean(publishToS3),
+    });
 
     return NextResponse.json({
       ok: true,
-      deploymentId,
-      subdomainSlug: cleanSlug,
-      businessName,
-      liveUrl,
-      edgeBucket: process.env.PUBLIC_ASSETS_BUCKET || 'ariacloud-public-assets',
-      edgeObjectKey,
-      edgeInvalidationId: `EDGE-${Date.now().toString(36).toUpperCase()}`,
-      primaryLanguage,
-      palette,
-      whatsappPhone,
-      hesabPayMerchantId,
-      promptUsed: prompt,
-      publishedAt: new Date().toISOString(),
+      deploymentId: result.deploymentId,
+      versionNumber: result.versionNumber,
+      fqdn: result.fqdn,
+      liveUrl: result.liveUrl,
+      s3Prefix: result.s3Prefix,
+      published: Boolean(publishToS3),
     });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Storefront build and publish failed',
-      },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    const status = error?.code === 'SUBDOMAIN_TAKEN' ? 409 : 500;
+    return NextResponse.json({ error: error?.message || 'Failed to build the storefront.' }, { status });
   }
 }

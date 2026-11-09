@@ -1,68 +1,74 @@
 # AriaCloud (`ariacloudservices.org`)
 
-**AriaCloud — Afghan Digital Enablement Initiative**  
-Multi-Tenant Cloud Hosting, Automated Domains & Stalwart Business Email, Dual-Currency Financial Settlement (HesabPay + Hawala Cash OTP + Stripe), AI Merchant Storefront Builder, and Multimodal AI Studio (ElevenLabs 33M Pool + Amazon Bedrock Nova).
+**Sovereign cloud infrastructure and multilingual AI for Afghanistan.**
+
+A multi-tenant platform to build, host and grow Afghan businesses — AI-generated websites in Dari, Pashto and English, verified business email, and local payment in Afghanis, without foreign bank cards.
+
+> **Status: application code complete, not yet deployed.** The services, schema, auth and merchant/admin consoles are implemented and verified against a local PostgreSQL. Infrastructure (compute, IAM, mail server) is not yet provisioned — see [Deployment](#deployment).
 
 ---
 
-## 1. Production Subdomain & Routing Architecture (`ariacloudservices.org`)
+## What's implemented
 
-| Host / Subdomain | Target Infrastructure | Purpose |
+| Area | Status | Notes |
 | :--- | :--- | :--- |
-| `ariacloudservices.org` | CloudFront $\rightarrow$ S3 Static Bucket | Public landing page, mission manifesto, and sign-up portal |
-| `app.ariacloudservices.org` | CloudFront $\rightarrow$ Next.js Console | Merchant & Admin Dashboard (Dari, Pashto, English) |
-| `api.ariacloudservices.org` | AWS API Gateway $\rightarrow$ Lambda / App Runner | Core API Gateway, webhooks, and Bedrock routing |
-| `mail.ariacloudservices.org` | Amazon Lightsail / EC2 (Static IP) | Stalwart Mail Server & SnappyMail Webmail |
-| `cdn.ariacloudservices.org` | CloudFront $\rightarrow$ `ariacloud-public-assets` | Global CDN for AI Studio audio, images, and public assets |
-| `*.ariacloudservices.org` | CloudFront Dynamic Alias Target | Free instant subdomains for merchant stores (e.g. `kabul-saffron.ariacloudservices.org`) |
+| Multi-tenant schema | ✅ | PostgreSQL with `FORCE ROW LEVEL SECURITY`; 8 migrations |
+| Auth | ✅ | Email/password (scrypt), sessions, password reset, admin console, audit log |
+| Billing | ✅ | HesabPay webhook + field-cash OTP, double-entry ledger, agent keys |
+| AI site builder | ✅ | Trilingual (Dari/Pashto/English) PWA storefronts for 6 sectors; XSS-escaped; slug ownership |
+| AI Studio | ✅ | Voice (ElevenLabs), image & chat (Bedrock), WhatsApp assistant |
+| Domains & email | ✅ | Subdomain/custom-domain/mailbox provisioning (Route 53, ACM, SES, Stalwart) |
+| Merchant console | ✅ | Cloudscape UI (web-portal), light AWS-style public landing page |
+| Admin console | ✅ | Control plane with admin-only routes + audit |
+| Verification | ✅ | `pnpm verify` — schema/RLS, auth, gateway, payments, storefront vs PostgreSQL 16 (PGlite) |
 
----
+## Architecture
 
-## 2. Completed Architecture Modules (100% Built)
+```
+apps/web-portal      Merchant console + public landing page (Next 14, Cloudscape)
+apps/control-plane   Platform admin console (Next 14)
+services/api-gateway HTTP + webhook router (session auth, HMAC verification)
+services/billing     Settlement, cash OTP, ledger (Lambda handler)
+services/site-builder AI storefront generator/compiler
+services/agent-runtime Voice / image / WhatsApp assistant handlers
+services/domain-provisioner Route 53 / ACM / SES / Stalwart provisioning
+packages/database    Migrations + RLS client + tenant context
+packages/auth        scrypt hashing, sessions, tokens, audit
+packages/ui          Shared i18n + design tokens
+```
 
-### Module #1: Multi-Tenant PostgreSQL RLS, Financial Settlement Engine & Multimodal AI Studio
-- **Database Migrations (`packages/database/migrations/`):**
-  - `001_core_multi_tenant_schema.sql`: Core tenants, users, products, orders, invoices, and payment ledger with `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`.
-  - `002_domains_email_and_storefront_deployments.sql`: Multi-tenant domains, Stalwart mail accounts, and versioned AI storefront deployments.
-  - `003_ai_studio_system.sql`: Dual-currency wallets (`balance_usd_cents`, `balance_afn_pul`, `ai_credits_balance`) and immutable `ai_generation_logs`.
-- **RLS Client (`packages/database/src/index.ts`):** Transaction-scoped `SELECT set_config('app.current_tenant_id', $1, true)` connection wrapper.
-- **Billing & Hawala OTP Engine (`services/billing/payment_processor.js`):** Idempotent HesabPay webhook settlement (`FOR UPDATE` row locks) and 6-digit Hawala cash voucher redemption with 5-attempt lockout protection.
-- **Multimodal AI Studio Runtime (`services/agent-runtime/src/handlers/`):**
-  - `generate-voice.ts`: ElevenLabs TTS (`eleven_multilingual_v2` & `eleven_flash_v2_5`) with atomic credit deduction & refund on API failure.
-  - `generate-image.ts`: Amazon Bedrock `amazon.nova-canvas-v1:0` commercial product photography generator.
-  - `whatsapp-assistant.ts`: Voice-to-Voice and Text WhatsApp assistant powered by ElevenLabs Scribe v1 ASR + Amazon Nova Micro/Lite + ElevenLabs Flash v2.5.
-- **Next.js 14 Control Plane (`apps/control-plane/`):** Unified dashboard for Voice Studio, Image Studio, Aria Assistant, Domains/Storefront Builder, and Dual-Currency Wallet.
+## Security model
 
-### Module #2: Multi-Region AWS Terraform IaC & Automated Domain + Stalwart Mail Provisioner
-- **Route 53 Master Zone File:** `infrastructure/dns/ariacloudservices.org.zone`
-- **Multi-Region Terraform (`infrastructure/terraform/`):**
-  - `providers.tf` & `variables.tf`: Primary `me-central-1` (UAE), `us-east-1` (CloudFront ACM & Bedrock), and `eu-west-1` (SES Inbound).
-  - `network_database.tf`: Multi-AZ VPC (`10.40.0.0/16`) and Aurora PostgreSQL 16.4 Serverless v2.
-  - `dns_cdn_storage.tf`: Wildcard ACM SSL, S3 buckets with OAC, and CloudFront Function (`ariacloud-merchant-subdomain-router`) rewriting `<store>.ariacloudservices.org` $\rightarrow$ `/tenants/<store>/index.html`.
-  - `mail_ses_stalwart.tf`: SES v2 Domain Identity, 2048-bit Easy-DKIM, custom `MAIL FROM` (`bounce.ariacloudservices.org`), SPF, DMARC (`p=quarantine`), and encrypted EFS for Stalwart Mail.
-- **Automated Provisioner (`services/domain-provisioner/src/index.ts`):** Programmatic provisioning for `<store>.ariacloudservices.org`, custom merchant domains, and Stalwart JMAP/IMAP mailboxes.
+- **Tenant isolation** is enforced in PostgreSQL via `FORCE ROW LEVEL SECURITY`, keyed off `app.current_tenant_id`, set per-transaction by `withTenantContext()`.
+- **Auth** uses email + scrypt-hashed passwords, server-side sessions (SHA-256 token hashes), single-use reset tokens, and an append-only admin audit log.
+- **Webhooks** (HesabPay, Meta) fail closed — a missing secret rejects the request, never accepts it unsigned.
+- **Money** is integer minor units (AFN pul / USD cents) in a balanced double-entry ledger.
 
-### Module #3: AI Website & Merchant Storefront Builder Engine
-- **Storefront Synthesizer & Compiler (`services/site-builder/src/index.ts`):**
-  - Generates trilingual (**Dari RTL**, **Pashto RTL**, **English LTR**) storefront blueprints via Amazon Bedrock.
-  - Compiles `< 35 KB` 3G-optimized static HTML5 storefronts with live language switching (`دری` / `پښتو` / `EN`), 4 theme palettes, HesabPay checkout, and 1-click WhatsApp order dispatch.
-  - Publishes directly to `s3://ariacloud-merchant-sites-production/tenants/<store>/index.html` and invalidates CloudFront edge cache.
-
-### Module #4: Multi-Tenant Auth & API Gateway Webhook Router (`api.ariacloudservices.org`)
-- **Cryptographic Verifiers & JWT Auth (`services/api-gateway/src/crypto-auth.ts`):**
-  - HS256 Multi-Tenant JWT signer/verifier (`signTenantJwt`, `verifyTenantJwt`) carrying `tenantId`, `sub`, `role`, and `locale`.
-  - Constant-time HMAC-SHA256 webhook verifiers for Meta WhatsApp (`verifyMetaWebhookSignature`) and HesabPay (`verifyHesabPaySignature`) with buffer length pre-checks.
-  - Sliding token-bucket rate limiter (`checkTenantRateLimit`).
-- **Gateway Router (`services/api-gateway/src/index.ts`):**
-  - `GET /health`, `POST /v1/auth/token`, `GET & POST /webhooks/whatsapp` (including `/build <slug> <prompt>` WhatsApp storefront creation), `POST /webhooks/hesabpay`, `POST /v1/domains/provision`, and `POST /v1/storefronts/build`.
-
----
-
-## 3. Running Locally
+## Running locally
 
 ```bash
-# Start the Next.js 14 Control Plane & AI Studio Console
-cd apps/control-plane
-npm install
-npm run dev
+export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"   # if Docker CLI isn't on PATH
+docker run -d --name aria-pg -p 5432:5432 \
+  -e POSTGRES_PASSWORD=test -e POSTGRES_DB=aria_cloud postgres:16
+
+export DATABASE_URL='postgresql://postgres:test@localhost:5432/aria_cloud'
+pnpm install
+pnpm db:migrate                              # applies 001–008
+pnpm user:create -- --email you@example.com --password 'long-password' \
+  --business "Kabul Saffron" --subdomain kabul-saffron --admin
+
+pnpm dev:portal                              # merchant console → http://localhost:3001
+pnpm dev:console                             # admin console    → http://localhost:3000
+pnpm verify                                  # schema/RLS/auth/gateway/payments/storefront tests
 ```
+
+## Deployment
+
+Not yet provisioned. Remaining infrastructure work, in rough order:
+
+1. IAM roles and S3 bucket policy (CloudFront + OAC currently 403 without it).
+2. Compute for the two Next apps (App Runner or ECS).
+3. API Gateway + Lambda for `services/api-gateway` and `services/billing`.
+4. Mail server (EC2 + EFS mount targets) for `mail.ariacloudservices.org`.
+
+See `infrastructure/terraform/` for the current state (VPC, Aurora, S3, CloudFront, Route 53).
