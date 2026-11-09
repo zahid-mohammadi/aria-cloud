@@ -1,604 +1,132 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import ContentLayout from '@cloudscape-design/components/content-layout';
-import Container from '@cloudscape-design/components/container';
-import Header from '@cloudscape-design/components/header';
-import Table, { TableProps } from '@cloudscape-design/components/table';
-import Cards from '@cloudscape-design/components/cards';
-import SpaceBetween from '@cloudscape-design/components/space-between';
-import Grid from '@cloudscape-design/components/grid';
-import StatusIndicator from '@cloudscape-design/components/status-indicator';
-import ProgressBar from '@cloudscape-design/components/progress-bar';
-import Box from '@cloudscape-design/components/box';
-import Button from '@cloudscape-design/components/button';
-import Badge from '@cloudscape-design/components/badge';
-import FormField from '@cloudscape-design/components/form-field';
-import Input from '@cloudscape-design/components/input';
-import Textarea from '@cloudscape-design/components/textarea';
-import Select, { SelectProps } from '@cloudscape-design/components/select';
-import Alert from '@cloudscape-design/components/alert';
-import Modal from '@cloudscape-design/components/modal';
-import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
-import Link from '@cloudscape-design/components/link';
-import * as awsui from '@cloudscape-design/design-tokens';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useTranslation } from '@aria-cloud/ui';
 import { AccountSummary } from '@/components/AccountSummary';
 
-interface InfraComponentRow {
-  id: string;
-  name: string;
-  target: string;
-  statusType: 'success' | 'info';
-  statusText: string;
-  latency: number;
+interface Invoice {
+  invoice_number: string;
+  amount_afn: string;
+  status: string;
+  due_date: string;
+  paid_at: string | null;
 }
 
-interface WhatsAppLeadItem {
-  id: string;
-  customerPhone: string;
-  transcript: string;
-  timestamp: string;
+interface Deployment {
+  app_name: string;
+  framework: string;
+  status: string;
+  custom_domain: string | null;
+}
+
+interface DashboardData {
+  overview: any;
+  invoices: Invoice[];
+  deployments: Deployment[];
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { t, dir } = useTranslation();
+  const { dir } = useTranslation();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Handshake / Cash OTP & HesabPay state
-  const [handshakeVerified, setHandshakeVerified] = useState<boolean>(false);
-  const [otpCode, setOtpCode] = useState<string>('849201');
-  const [hesabpayModalOpen, setHesabpayModalOpen] = useState<boolean>(false);
-
-  // Latency state for live refresh
-  const [latencyOffset, setLatencyOffset] = useState<number>(0);
-
-  // Aria Creative Studio Modal state
-  const [canvasModalOpen, setCanvasModalOpen] = useState<boolean>(false);
-  const [canvasPrompt, setCanvasPrompt] = useState<string>('');
-  const [canvasAspectRatio, setCanvasAspectRatio] =
-    useState<SelectProps.Option>({
-      value: '1:1',
-      label: '1024 × 1024 (1:1)',
-    });
-  const [canvasRendering, setCanvasRendering] = useState<boolean>(false);
-  const [generatedVisualUrl, setGeneratedVisualUrl] = useState<string | null>(
-    null
-  );
-  const [canvasQuotaRemaining, setCanvasQuotaRemaining] = useState<number>(9);
-
-  // Infrastructure & Service Health rows using strictly Aria-branded names from `t`
-  const infraRows: InfraComponentRow[] = [
-    {
-      id: 'edge-store',
-      name: t.nav.storefront,
-      target: 'https://kabul-saffron.ariacloudservices.org',
-      statusType: 'success',
-      statusText: t.infra.statusHealthy,
-      latency: 24 + latencyOffset,
-    },
-    {
-      id: 'domain-dns',
-      name: t.nav.domains,
-      target: 'ariacloudservices.org (*.ariacloudservices.org)',
-      statusType: 'success',
-      statusText: t.infra.statusConfigured,
-      latency: 18 + latencyOffset,
-    },
-    {
-      id: 'cloud-mail',
-      name: t.nav.email,
-      target: 'sales@kabul-saffron.ariacloudservices.org',
-      statusType: 'success',
-      statusText: t.infra.statusActive,
-      latency: 39 + latencyOffset,
-    },
-    {
-      id: 'core-ai',
-      name: t.nav.aiChat,
-      target: 'https://api.ariacloudservices.org/v1/ai',
-      statusType: 'success',
-      statusText: t.infra.statusHealthy,
-      latency: 64 + latencyOffset,
-    },
-    {
-      id: 'voice-engine',
-      name: t.nav.aiVoice,
-      target: 'https://cdn.ariacloudservices.org/audio-edge',
-      statusType: 'success',
-      statusText: t.infra.statusActive,
-      latency: 71 + latencyOffset,
-    },
-  ];
-
-  // Rule 1: Table Column Definitions Must Pull from `t`
-  const columnDefinitions: TableProps.ColumnDefinition<InfraComponentRow>[] = [
-    {
-      id: 'component',
-      header: t.infra.colComponent,
-      cell: (item) => (
-        <div className="ps-3 pe-3 text-start">
-          <Box fontWeight="bold">{item.name}</Box>
-        </div>
-      ),
-    },
-    {
-      id: 'target',
-      header: t.infra.colTarget,
-      cell: (item) => (
-        <div className="ps-3 pe-3 text-start">
-          <Box variant="code" fontSize="body-s">
-            {item.target}
-          </Box>
-        </div>
-      ),
-    },
-    {
-      id: 'status',
-      header: t.infra.colStatus,
-      cell: (item) => (
-        <div className="ps-3 pe-3 text-start">
-          <StatusIndicator type={item.statusType}>
-            {item.statusText}
-          </StatusIndicator>
-        </div>
-      ),
-    },
-    {
-      id: 'latency',
-      header: t.infra.colLatency,
-      cell: (item) => (
-        <div className="ps-3 pe-3 text-start">
-          <Badge color="blue">{`${item.latency} ${t.common.ms}`}</Badge>
-        </div>
-      ),
-    },
-  ];
-
-  const inboundLeads: WhatsAppLeadItem[] = [
-    {
-      id: 'lead-kbl-01',
-      customerPhone: '+93 70 412 8890 (Kabul)',
-      transcript: '25g Super Negin Herat Saffron Gift Box — 4,500 AFN',
-      timestamp: '00:02',
-    },
-    {
-      id: 'lead-hrt-02',
-      customerPhone: '+93 79 901 3341 (Herat)',
-      transcript: '50g Wholesale Saffron Export Tin — 5,400 AFN',
-      timestamp: '00:14',
-    },
-  ];
-
-  const handleVerifyCashHandshake = () => {
-    if (/^\d{6}$/.test(otpCode.trim())) {
-      setHandshakeVerified(true);
-    }
-  };
-
-  const handleSimulateHesabpayApproval = () => {
-    setHandshakeVerified(true);
-    setHesabpayModalOpen(false);
-  };
-
-  const handleGenerateVisual = async () => {
-    setCanvasRendering(true);
-    try {
-      const promptToUse = canvasPrompt.trim() || t.canvasModal.promptDefault;
-      const res = await fetch('/api/studio/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptToUse,
-          resolution:
-            canvasAspectRatio.value === '16:9' ? '1280x720' : '1024x1024',
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.imageUrl) {
-        setGeneratedVisualUrl(data.imageUrl);
-        setCanvasQuotaRemaining((prev) => Math.max(0, prev - 1));
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/dashboard');
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'Failed to load dashboard.');
+        setData(json);
+      } catch (e: any) {
+        setError(e.message);
       }
-    } finally {
-      setCanvasRendering(false);
-    }
-  };
+    })();
+  }, []);
+
+  const statusClass = (s: string) =>
+    ({ paid: 'ok', running: 'ok', unpaid: 'warn', deploying: 'warn', paused: 'warn', failed: 'bad', suspended: 'bad' })[s] || 'muted';
 
   return (
-    <div dir={dir} className="text-start start-0 end-0">
+    <div dir={dir} className="dash">
       <AccountSummary />
 
-      <ContentLayout
-        header={
-          <SpaceBetween size="m">
-            <Alert
-              type={handshakeVerified ? 'success' : 'warning'}
-              header={
-                handshakeVerified
-                  ? t.alerts.verifiedSuccessTitle
-                  : t.alerts.cashPendingTitle
-              }
-              action={
-                !handshakeVerified ? (
-                  <Button onClick={handleVerifyCashHandshake}>
-                    {t.alerts.verifyCodeBtn}
-                  </Button>
-                ) : undefined
-              }
-            >
-              {handshakeVerified
-                ? t.alerts.verifiedSuccessBody
-                : t.alerts.cashPendingBody}
-            </Alert>
+      {error && <div className="dash-error">{error}</div>}
 
-            <Header
-              variant="h1"
-              description={t.tagline}
-              actions={
-                <SpaceBetween direction="horizontal" size="xs">
-                  <Button
-                    iconName="refresh"
-                    onClick={() =>
-                      setLatencyOffset((prev) => (prev === 0 ? 3 : 0))
-                    }
-                  >
-                    {t.infra.refreshLatencyBtn}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    iconName="external"
-                    href="https://kabul-saffron.ariacloudservices.org"
-                    target="_blank"
-                  >
-                    {t.infra.viewLiveStore}
-                  </Button>
-                </SpaceBetween>
-              }
-            >
-              {t.appTitle}
-            </Header>
-          </SpaceBetween>
-        }
-      >
-        <SpaceBetween size="l">
-          {/* SECTION 1: Aria Core Infrastructure & Service Health Table */}
-          <Table
-            header={
-              <Header
-                variant="h2"
-                description={t.infra.headerDesc}
-                actions={
-                  <Link
-                    onFollow={(e) => {
-                      e.preventDefault();
-                      router.push('/store-builder');
-                    }}
-                  >
-                    {t.infra.manageDnsLink}
-                  </Link>
-                }
-              >
-                {t.infra.headerTitle}
-              </Header>
-            }
-            columnDefinitions={columnDefinitions}
-            items={infraRows}
-          />
+      <section className="dash-section">
+        <div className="dash-section-head">
+          <h2>Invoices</h2>
+          <Link href="/billing" className="dash-link">Billing →</Link>
+        </div>
+        {!data ? (
+          <p className="dash-muted">Loading…</p>
+        ) : data.invoices.length === 0 ? (
+          <p className="dash-muted">No invoices yet. They appear here once a plan is active.</p>
+        ) : (
+          <table className="dash-table">
+            <thead>
+              <tr><th>Invoice</th><th>Amount</th><th>Due</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {data.invoices.map((inv) => (
+                <tr key={inv.invoice_number}>
+                  <td className="dash-mono">{inv.invoice_number}</td>
+                  <td>{Number(inv.amount_afn).toLocaleString()} AFN</td>
+                  <td>{inv.due_date?.slice(0, 10)}</td>
+                  <td><span className={`dash-badge dash-${statusClass(inv.status)}`}>{inv.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
-          {/* SECTION 2: Aria AI Studio Consumption & Localized Billing */}
-          <Grid
-            gridDefinition={[
-              { colspan: { default: 12, m: 7 } },
-              { colspan: { default: 12, m: 5 } },
-            ]}
-          >
-            {/* Aria AI Studio Consumption & Quotas */}
-            <Container
-              header={
-                <Header
-                  variant="h2"
-                  description={t.aiStudio.cardDesc}
-                  actions={
-                    <SpaceBetween direction="horizontal" size="xs">
-                      <Badge color="blue">{t.aiStudio.tierBadge}</Badge>
-                      <Button
-                        onClick={() => {
-                          setCanvasPrompt(t.canvasModal.promptDefault);
-                          setCanvasModalOpen(true);
-                        }}
-                      >
-                        {t.aiStudio.generateImageBtn}
-                      </Button>
-                      <Button
-                        variant="primary"
-                        onClick={() => router.push('/ai-studio')}
-                      >
-                        {t.aiStudio.openStudioBtn}
-                      </Button>
-                    </SpaceBetween>
-                  }
-                >
-                  {t.aiStudio.cardTitle}
-                </Header>
-              }
-            >
-              <SpaceBetween size="m">
-                <div className="ps-3 pe-3">
-                  <ProgressBar
-                    label={t.aiStudio.textTokensLabel}
-                    description={t.aiStudio.textTokensDesc}
-                    value={34}
-                    status="in-progress"
-                  />
-                </div>
-                <div className="ps-3 pe-3">
-                  <ProgressBar
-                    label={t.aiStudio.canvasImagesLabel}
-                    description={t.aiStudio.canvasImagesDesc}
-                    value={70}
-                    status="in-progress"
-                  />
-                </div>
-                <div className="ps-3 pe-3">
-                  <SpaceBetween size="xs">
-                    <ProgressBar
-                      label={t.aiStudio.voiceCharsLabel}
-                      description={t.aiStudio.voiceCharsDesc}
-                      value={16}
-                      status="in-progress"
-                    />
-                    <Badge color="green">{t.aiStudio.voiceCacheBadge}</Badge>
-                  </SpaceBetween>
-                </div>
-                <Alert type="info">{t.aiStudio.architectureNote}</Alert>
-              </SpaceBetween>
-            </Container>
+      <section className="dash-section">
+        <div className="dash-section-head">
+          <h2>Applications</h2>
+          <Link href="/store-builder" className="dash-link">Build a website →</Link>
+        </div>
+        {!data ? (
+          <p className="dash-muted">Loading…</p>
+        ) : data.deployments.length === 0 ? (
+          <p className="dash-muted">No applications deployed yet.</p>
+        ) : (
+          <table className="dash-table">
+            <thead>
+              <tr><th>App</th><th>Runtime</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {data.deployments.map((d) => (
+                <tr key={d.app_name + d.custom_domain}>
+                  <td className="dash-strong">{d.app_name}</td>
+                  <td className="dash-mono">{d.framework}</td>
+                  <td><span className={`dash-badge dash-${statusClass(d.status)}`}>{d.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
-            {/* Localized Billing (AFN) Card */}
-            <Container
-              header={
-                <Header variant="h2" description={t.billing.cardDesc}>
-                  {t.billing.cardTitle}
-                </Header>
-              }
-            >
-              <SpaceBetween size="m">
-                <KeyValuePairs
-                  columns={2}
-                  items={[
-                    {
-                      label: t.billing.activePlanLabel,
-                      value: (
-                        <Box variant="code" fontWeight="bold">
-                          #INV-2026-1108 ({t.billing.currentPlanName})
-                        </Box>
-                      ),
-                    },
-                    {
-                      label: t.billing.renewalCostLabel,
-                      value: (
-                        <Box fontWeight="bold" color="text-status-info">
-                          {t.billing.renewalCostValue}
-                        </Box>
-                      ),
-                    },
-                    {
-                      label: t.billing.coverageExpiryLabel,
-                      value: (
-                        <StatusIndicator
-                          type={handshakeVerified ? 'success' : 'info'}
-                        >
-                          {handshakeVerified
-                            ? t.alerts.verifiedSuccessTitle
-                            : t.infra.statusActive}
-                        </StatusIndicator>
-                      ),
-                    },
-                  ]}
-                />
-
-                {/* Rule 2: Input Placeholders & Form Hints Must Pull from `t` */}
-                <FormField
-                  label={t.billing.cashOtpLabel}
-                  description={t.billing.cashHint}
-                >
-                  <SpaceBetween direction="horizontal" size="xs">
-                    <Input
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.detail.value)}
-                      placeholder={t.billing.cashOtpPlaceholder}
-                      ariaLabel={t.billing.cashOtpLabel}
-                      inputMode="numeric"
-                    />
-                    <Button
-                      variant="primary"
-                      onClick={handleVerifyCashHandshake}
-                    >
-                      {t.billing.cashVerifyBtn}
-                    </Button>
-                  </SpaceBetween>
-                </FormField>
-
-                <Button
-                  iconName="external"
-                  onClick={() => setHesabpayModalOpen(true)}
-                >
-                  {t.billing.payHesabpayBtn}
-                </Button>
-              </SpaceBetween>
-            </Container>
-          </Grid>
-
-          {/* SECTION 3: Live Inbound WhatsApp Stream */}
-          <Cards
-            header={
-              <Header
-                variant="h2"
-                description={t.leads.cardDesc}
-                actions={
-                  <SpaceBetween direction="horizontal" size="xs">
-                    <Badge color="green">{t.leads.liveBadge}</Badge>
-                    <Link
-                      onFollow={(e) => {
-                        e.preventDefault();
-                        router.push('/ai-studio');
-                      }}
-                    >
-                      {t.leads.viewAuditLink}
-                    </Link>
-                  </SpaceBetween>
-                }
-              >
-                {t.leads.cardTitle}
-              </Header>
-            }
-            cardDefinition={{
-              header: (item) => (
-                <div className="ps-3 pe-3 text-start">
-                  <SpaceBetween direction="horizontal" size="xs">
-                    <Box fontWeight="bold">{item.customerPhone}</Box>
-                    <Badge color="blue">{t.leads.orderIntentTag}</Badge>
-                    <Badge color="green">{t.leads.autoRepliedTag}</Badge>
-                  </SpaceBetween>
-                </div>
-              ),
-              sections: [
-                {
-                  id: 'transcript',
-                  header: t.leads.voiceNoteTranscribed,
-                  content: (item) => (
-                    <div className="ps-3 pe-3 text-start">
-                      <SpaceBetween size="xs">
-                        <Box variant="p">{item.transcript}</Box>
-                        <Button
-                          iconName="audio-full"
-                          onClick={() => router.push('/ai-studio')}
-                        >
-                          {t.leads.listenAudioBtn}
-                        </Button>
-                      </SpaceBetween>
-                    </div>
-                  ),
-                },
-              ],
-            }}
-            cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 2 }]}
-            items={inboundLeads}
-          />
-        </SpaceBetween>
-
-        {/* Modal 1: HesabPay Digital Checkout */}
-        <Modal
-          visible={hesabpayModalOpen}
-          onDismiss={() => setHesabpayModalOpen(false)}
-          header={t.billing.hesabpayModalTitle}
-          footer={
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button
-                variant="link"
-                onClick={() => setHesabpayModalOpen(false)}
-              >
-                {t.billing.closeBtn}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSimulateHesabpayApproval}
-              >
-                {t.billing.simulateApprovalBtn}
-              </Button>
-            </SpaceBetween>
-          }
-        >
-          <SpaceBetween size="m">
-            <Box variant="p">{t.billing.hesabpayModalDesc}</Box>
-            <div
-              className="ps-4 pe-4 text-start"
-              style={{
-                border: `1px solid ${awsui.colorBorderDividerDefault}`,
-                borderRadius: '8px',
-                padding: '16px',
-              }}
-            >
-              <Box variant="code">
-                https://pay.hesabpay.com/checkout/INV-2026-1108
-              </Box>
-              <Box variant="h4">{t.billing.renewalCostValue}</Box>
-            </div>
-          </SpaceBetween>
-        </Modal>
-
-        {/* Modal 2: Aria Creative Studio Visual Generator */}
-        <Modal
-          visible={canvasModalOpen}
-          onDismiss={() => setCanvasModalOpen(false)}
-          header={t.canvasModal.modalTitle}
-          footer={
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button
-                variant="link"
-                onClick={() => setCanvasModalOpen(false)}
-              >
-                {t.canvasModal.cancelBtn}
-              </Button>
-              <Button
-                variant="primary"
-                loading={canvasRendering}
-                onClick={handleGenerateVisual}
-              >
-                {t.canvasModal.generateActionBtn}
-              </Button>
-            </SpaceBetween>
-          }
-        >
-          <SpaceBetween size="m">
-            <FormField label={t.canvasModal.promptLabel}>
-              <Textarea
-                value={canvasPrompt}
-                onChange={({ detail }) => setCanvasPrompt(detail.value)}
-                placeholder={t.canvasModal.promptDefault}
-                ariaLabel={t.canvasModal.promptLabel}
-                rows={3}
-              />
-            </FormField>
-
-            <Grid
-              gridDefinition={[
-                { colspan: { default: 12, s: 6 } },
-                { colspan: { default: 12, s: 6 } },
-              ]}
-            >
-              <FormField label={t.canvasModal.aspectRatioLabel}>
-                <Select
-                  selectedOption={canvasAspectRatio}
-                  onChange={({ detail }) =>
-                    setCanvasAspectRatio(detail.selectedOption)
-                  }
-                  options={[
-                    { value: '1:1', label: '1024 × 1024 (1:1)' },
-                    { value: '16:9', label: '1280 × 720 (16:9)' },
-                  ]}
-                />
-              </FormField>
-              <FormField label={t.canvasModal.qualityLabel}>
-                <Badge color="blue">{t.nav.aiCanvas}</Badge>
-              </FormField>
-            </Grid>
-
-            <Box variant="p">
-              {canvasRendering
-                ? t.canvasModal.renderingText
-                : generatedVisualUrl
-                  ? generatedVisualUrl
-                  : t.canvasModal.emptyStateText}
-            </Box>
-
-            <Badge color="green">
-              {`${t.canvasModal.remainingQuotaLabel} ${canvasQuotaRemaining}`}
-            </Badge>
-          </SpaceBetween>
-        </Modal>
-      </ContentLayout>
+      <style>{`
+        .dash { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        .dash-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+        .dash-section { background: #ffffff; border: 1px solid #e3e8ee; border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+        .dash-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .dash-section-head h2 { margin: 0; font-size: 16px; color: #16191f; }
+        .dash-link { color: #ff9900; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .dash-muted { color: #687078; font-size: 13px; margin: 0; }
+        .dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .dash-table th { text-align: start; color: #687078; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid #eef2f6; }
+        .dash-table td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; color: #16191f; }
+        .dash-table tr:last-child td { border-bottom: 0; }
+        .dash-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+        .dash-strong { font-weight: 700; }
+        .dash-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .dash-ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .dash-warn { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+        .dash-bad { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+      `}</style>
     </div>
   );
 }
