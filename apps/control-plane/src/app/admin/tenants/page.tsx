@@ -84,6 +84,26 @@ export default function TenantsPage() {
     }
   }
 
+  async function setCompliance(action: 'set_screening' | 'set_kyc', status: string) {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/tenants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, status, tenantId: selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Action failed.');
+      await openTenant(selected);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     loadList();
   }, []);
@@ -140,6 +160,12 @@ export default function TenantsPage() {
                   <span className={`tn-badge tn-${detail.tenant?.account_status}`}>
                     {STATUS_LABEL[detail.tenant?.account_status] || detail.tenant?.account_status}
                   </span>
+                  <span className={`tn-badge ${detail.tenant?.ofac_screening_status === 'blocked' ? 'tn-blocked' : detail.tenant?.ofac_screening_status === 'clear' ? 'tn-active' : 'tn-warn'}`}>
+                    OFAC: {detail.tenant?.ofac_screening_status || 'unscreened'}
+                  </span>
+                  <span className={`tn-badge ${detail.tenant?.kyc_status === 'verified' ? 'tn-active' : 'tn-warn'}`}>
+                    KYC: {detail.tenant?.kyc_status || 'unverified'}
+                  </span>
                 </div>
                 <p className="tn-meta">
                   {detail.tenant?.subdomain} · {detail.tenant?.plan_tier} · until {detail.tenant?.subscription_end_date?.slice(0, 10)}
@@ -149,6 +175,14 @@ export default function TenantsPage() {
                   <button className="tn-btn tn-btn-pause" disabled={busy} onClick={() => setStatus('suspend')}>Suspend</button>
                   <button className="tn-btn tn-btn-run" disabled={busy} onClick={() => setStatus('activate')}>Activate</button>
                   <button className="tn-btn tn-btn-archive" disabled={busy} onClick={() => setStatus('archive')}>Archive</button>
+                </div>
+                <div className="tn-actions">
+                  <button className="tn-btn tn-btn-pause" disabled={busy} onClick={() => setCompliance('set_screening', 'blocked')}>OFAC Block</button>
+                  <button className="tn-btn tn-btn-run" disabled={busy} onClick={() => setCompliance('set_screening', 'clear')}>OFAC Clear</button>
+                </div>
+                <div className="tn-actions">
+                  <button className="tn-btn tn-btn-run" disabled={busy} onClick={() => setCompliance('set_kyc', 'verified')}>KYC Verify</button>
+                  <button className="tn-btn tn-btn-archive" disabled={busy} onClick={() => setCompliance('set_kyc', 'rejected')}>KYC Reject</button>
                 </div>
 
                 <div className="tn-stats">
@@ -222,6 +256,8 @@ export default function TenantsPage() {
         .tn-active { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.4); }
         .tn-suspended, .tn-archived, .tn-failed { background: rgba(225,29,72,.15); color: #fda4af; border: 1px solid rgba(225,29,72,.4); }
         .tn-grace_period, .tn-deploying, .tn-unpaid, .tn-paused { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.4); }
+        .tn-blocked { background: rgba(225,29,72,.15); color: #fda4af; border: 1px solid rgba(225,29,72,.4); }
+        .tn-warn { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.4); }
         .tn-paid, .tn-running { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.4); }
         .tn-detail-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .tn-detail-head { display: flex; align-items: center; gap: 10px; }

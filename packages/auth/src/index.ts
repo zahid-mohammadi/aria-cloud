@@ -95,6 +95,11 @@ export function isTenantBlocked(status: string | null | undefined): boolean {
   return (BLOCKED_TENANT_STATUSES as readonly string[]).includes(status ?? '');
 }
 
+/** A tenant is sanctions-blocked when screening returned a 'blocked' verdict. */
+export function isSanctionsBlocked(ofacStatus: string | null | undefined): boolean {
+  return ofacStatus === 'blocked';
+}
+
 // --- Credentials ------------------------------------------------------------
 
 export interface CredentialsRow {
@@ -107,6 +112,7 @@ export interface CredentialsRow {
   locked_until: Date | null;
   is_platform_admin: boolean;
   tenant_account_status: string;
+  ofac_screening_status: string | null;
 }
 
 export async function findCredentialsByEmail(email: string): Promise<CredentialsRow | null> {
@@ -115,7 +121,8 @@ export async function findCredentialsByEmail(email: string): Promise<Credentials
   const res = await pool.query<CredentialsRow>(
     `SELECT c.user_id, c.tenant_id, c.email, c.password_hash, c.email_verified_at,
             c.failed_login_attempts, c.locked_until, c.is_platform_admin,
-            t.account_status AS tenant_account_status
+            t.account_status AS tenant_account_status,
+            t.ofac_screening_status
        FROM user_credentials c
        JOIN tenants t ON t.id = c.tenant_id
       WHERE lower(c.email) = lower($1)
@@ -219,6 +226,7 @@ export async function resolveSession(token: string | undefined): Promise<Resolve
         AND s.revoked_at IS NULL
         AND s.expires_at > now()
         AND COALESCE(t.account_status, 'active') <> ALL($2::text[])
+        AND COALESCE(t.ofac_screening_status, 'unscreened') <> 'blocked'
       LIMIT 1`,
     [hashToken(token), [...BLOCKED_TENANT_STATUSES]]
   );

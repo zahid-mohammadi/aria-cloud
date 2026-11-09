@@ -123,6 +123,12 @@ export async function run() {
   r = await billing.handler({ rawPath: '/cash/verify', body: '{}', headers: {} });
   check('cash/verify route removed', r.statusCode === 404, `status=${r.statusCode}`);
 
+  // --- sanctions-blocked settlement ----------------------------------------
+  await db.query(`UPDATE tenants SET ofac_screening_status = 'blocked' WHERE id = $1`, [OTHER_TENANT]);
+  r = await hesa({ transaction_id: 'tx-blocked', tenant_id: OTHER_TENANT, invoice_id: 'aaaaaaaa-0000-0000-0000-000000000001', amount_afn: 1450, status: 'COMPLETED' });
+  check('sanctions-blocked tenant settlement rejected', r.statusCode === 403, `status=${r.statusCode}`);
+  await db.query(`UPDATE tenants SET ofac_screening_status = 'unscreened' WHERE id = $1`, [OTHER_TENANT]);
+
   // --- final invariant -----------------------------------------------------
   const finalBalance = await db.query(`
     SELECT

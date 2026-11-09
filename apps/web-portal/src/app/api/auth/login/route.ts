@@ -4,6 +4,7 @@ import {
   createSession,
   enforceRateLimits,
   findCredentialsByEmail,
+  isSanctionsBlocked,
   isTenantBlocked,
   recordFailedLogin,
   recordSuccessfulLogin,
@@ -67,11 +68,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
-    // Checked only after the password, so suspension status cannot be used to
-    // probe which email addresses have accounts.
-    if (isTenantBlocked(credentials.tenant_account_status)) {
+    // Checked only after the password, so suspension/sanctions status cannot be
+    // used to probe which email addresses have accounts.
+    if (
+      isTenantBlocked(credentials.tenant_account_status) ||
+      isSanctionsBlocked(credentials.ofac_screening_status)
+    ) {
       return NextResponse.json(
-        { error: 'This account is suspended. Please contact AriaCloud support.' },
+        { error: 'This account is unavailable. Please contact AriaCloud support.' },
         { status: 403 }
       );
     }

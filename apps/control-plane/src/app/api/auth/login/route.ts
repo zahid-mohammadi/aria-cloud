@@ -4,6 +4,7 @@ import {
   createSession,
   enforceRateLimits,
   findCredentialsByEmail,
+  isSanctionsBlocked,
   isTenantBlocked,
   recordAuditEvent,
   recordFailedLogin,
@@ -82,16 +83,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (isTenantBlocked(credentials.tenant_account_status)) {
+    if (
+      isTenantBlocked(credentials.tenant_account_status) ||
+      isSanctionsBlocked(credentials.ofac_screening_status)
+    ) {
       await recordAuditEvent({
         actorUserId: credentials.user_id,
         actorEmail: credentials.email,
         action: 'admin.login.denied',
-        metadata: { reason: 'tenant_suspended' },
+        metadata: {
+          reason: isSanctionsBlocked(credentials.ofac_screening_status)
+            ? 'sanctions_blocked'
+            : 'tenant_suspended',
+        },
         ipAddress: ip,
       });
       return NextResponse.json(
-        { error: 'This account belongs to a suspended organization.' },
+        { error: 'This account belongs to an unavailable organization.' },
         { status: 403 }
       );
     }

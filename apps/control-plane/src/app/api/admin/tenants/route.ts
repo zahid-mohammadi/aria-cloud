@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 const TENANT_SUMMARY = `
   SELECT t.id, t.business_name, t.subdomain, t.plan_tier, t.account_status,
          t.subscription_end_date, t.created_at,
+         t.ofac_screening_status, t.kyc_status,
          (SELECT count(*) FROM users u WHERE u.tenant_id = t.id) AS user_count,
          (SELECT count(*) FROM custom_app_deployments d WHERE d.tenant_id = t.id) AS deployment_count,
          COALESCE(w.afn_balance_pul, 0) AS afn_balance_pul,
@@ -39,8 +40,37 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { action, tenantId } = body;
 
+  if (action === 'set_screening') {
+    const valid = ['unscreened', 'screening', 'clear', 'flagged_review', 'blocked'];
+    if (!tenantId || !valid.includes(body.status)) {
+      return NextResponse.json({ error: 'status must be one of ' + valid.join(', ') }, { status: 400 });
+    }
+    await audit(req, auth.session, 'admin.tenants.set_screening', { tenantId, metadata: { status: body.status } });
+    await getAdminPool().query(
+      `UPDATE tenants SET ofac_screening_status = $1, ofac_screened_at = now() WHERE id = $2`,
+      [body.status, tenantId]
+    );
+    return NextResponse.json({ ok: true, tenantId, ofacScreeningStatus: body.status });
+  }
+
+  if (action === 'set_kyc') {
+    const valid = ['unverified', 'pending_review', 'verified', 'rejected'];
+    if (!tenantId || !valid.includes(body.status)) {
+      return NextResponse.json({ error: 'status must be one of ' + valid.join(', ') }, { status: 400 });
+    }
+    await audit(req, auth.session, 'admin.tenants.set_kyc', { tenantId, metadata: { status: body.status } });
+    await getAdminPool().query(
+      `UPDATE tenants
+          SET kyc_status = $1,
+              kyc_verified_at = CASE WHEN $1 = 'verified' THEN now() ELSE kyc_verified_at END
+        WHERE id = $2`,
+      [body.status, tenantId]
+    );
+    return NextResponse.json({ ok: true, tenantId, kycStatus: body.status });
+  }
+
   if (!['suspend', 'activate', 'archive'].includes(action) || !tenantId) {
-    return NextResponse.json({ error: 'action must be suspend, activate or archive' }, { status: 400 });
+    return NextResponse.json({ error: 'action must be suspend, activate, archive, set_screening or set_kyc' }, { status: 400 });
   }
 
   const status = action === 'suspend' ? 'suspended' : action === 'archive' ? 'archived' : 'active';
@@ -64,7 +94,9 @@ export async function POST(req: NextRequest) {
 async function tenantDetail(tenantId: string) {
   const tenant = await getAdminPool().query(
     `SELECT t.id, t.business_name, t.subdomain, t.plan_tier, t.account_status,
-            t.subscription_end_date, t.owner_phone, t.created_at
+            t.subscription_end_date, t.owner_phone, t.created_at,
+            t.ofac_screening_status, t.kyc_status, t.kyc_document_type,
+            t.kyc_document_number, t.kyc_verified_at, t.business_license_number
        FROM tenants t WHERE t.id = $1`,
     [tenantId]
   );

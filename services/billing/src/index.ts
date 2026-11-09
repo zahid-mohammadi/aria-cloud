@@ -16,7 +16,7 @@
  */
 import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { withTenantContext } from '@aria-cloud/database';
+import { pool, withTenantContext } from '@aria-cloud/database';
 
 export interface LambdaEvent {
   rawPath?: string;
@@ -339,6 +339,15 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
       }
       if (status !== 'COMPLETED') {
         return json(200, { status: 'ACK_IGNORED', reason: `status=${status}` });
+      }
+
+      // Sanctions check: never settle a blocked tenant.
+      const ofacRes = await pool.query<{ ofac_screening_status: string }>(
+        `SELECT ofac_screening_status FROM tenants WHERE id = $1 LIMIT 1`,
+        [tenant_id]
+      );
+      if (ofacRes.rows[0]?.ofac_screening_status === 'blocked') {
+        return json(403, { error: 'TENANT_SANCTIONS_BLOCKED' });
       }
 
       const result = await withTenantContext(tenant_id, async (client) => {

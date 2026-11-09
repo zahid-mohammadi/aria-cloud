@@ -76,6 +76,16 @@ export async function run() {
   await db.query(`UPDATE tenants SET account_status = 'active' WHERE id = $1`, [tenantId]);
   check('session resolution works again once reinstated', (await auth.resolveSession(session2)) !== null);
 
+  // Sanctions block: a tenant screened 'blocked' cannot resolve a session.
+  await db.query(`UPDATE tenants SET ofac_screening_status = 'blocked' WHERE id = $1`, [tenantId]);
+  check('session resolution blocked immediately when tenant is sanctions-blocked', (await auth.resolveSession(session2)) === null);
+
+  const blockedCreds = await auth.findCredentialsByEmail('owner@test.co');
+  check('credentials report sanctions-blocked status', auth.isSanctionsBlocked(blockedCreds?.ofac_screening_status));
+
+  await db.query(`UPDATE tenants SET ofac_screening_status = 'unscreened' WHERE id = $1`, [tenantId]);
+  check('session resolution works again once screening cleared', (await auth.resolveSession(session2)) !== null);
+
   // --- Shared rate limiting checks ----------------------------------------
   const rlKey = 'test:login:ip:10.0.0.1';
   const rl1 = await database.consumeRateLimit(rlKey, 2, 60);
