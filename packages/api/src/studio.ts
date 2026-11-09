@@ -261,7 +261,13 @@ export interface AssistantInput {
 export async function chatAssistant(tenantId: string, input: AssistantInput): Promise<unknown> {
   const { message } = input;
   const language = input.language || 'fa-AF';
-  const modelId = input.modelId || 'amazon.nova-micro-v1:0';
+  const requestedModel = input.modelId || 'aria-text-fast';
+  const modelId =
+    requestedModel === 'aria-text-capable'
+      ? 'amazon.nova-lite-v1:0'
+      : requestedModel === 'aria-text-fast'
+      ? 'amazon.nova-micro-v1:0'
+      : requestedModel;
   const voiceReply = Boolean(input.voiceReply);
 
   if (!message || typeof message !== 'string') {

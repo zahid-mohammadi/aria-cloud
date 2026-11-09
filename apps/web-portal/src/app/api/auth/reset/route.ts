@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { consumeAuthToken, setPassword } from '@aria-cloud/auth';
+import { clientIp, consumeAuthToken, enforceRateLimits, setPassword } from '@aria-cloud/auth';
 
 export const runtime = 'nodejs';
 
@@ -25,6 +25,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const limited = await enforceRateLimits([
+      { key: `portal:reset:ip:${clientIp(req.headers)}`, limit: 10, windowSeconds: 15 * 60 },
+    ]);
+    if (limited) return limited;
+
     // Single-use: consumeAuthToken is an atomic UPDATE ... WHERE consumed_at IS NULL.
     const consumed = await consumeAuthToken(token, 'password_reset');
     if (!consumed) {

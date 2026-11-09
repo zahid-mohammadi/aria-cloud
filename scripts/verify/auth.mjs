@@ -7,7 +7,7 @@
  * log's append-only guarantee.
  */
 import path from 'node:path';
-import { ROOT, freshDatabase, makeChecker } from './helpers.mjs';
+import { ROOT, freshDatabase, makeChecker, bindDatabaseToPglite } from './helpers.mjs';
 
 export async function run() {
   console.log('\n── auth flows ' + '─'.repeat(50));
@@ -22,11 +22,7 @@ export async function run() {
   const auth = await import(path.join(ROOT, 'packages/auth/dist/index.js'));
 
   const { db } = await freshDatabase();
-  database.pool.query = (text, params) => db.query(text, params);
-  database.pool.connect = async () => ({
-    query: (text, params) => db.query(text, params),
-    release: () => {},
-  });
+  bindDatabaseToPglite(database, db);
 
   const tenantId = '55555555-5555-5555-5555-555555555555';
   await db.exec(
@@ -64,6 +60,31 @@ export async function run() {
   check('old password rejected after reset', !(await auth.verifyPassword('initial-password', after.password_hash)));
   check('new password accepted', await auth.verifyPassword('brand-new-password', after.password_hash));
   check('reset revokes existing sessions', (await auth.resolveSession(token)) === null);
+
+  // --- Suspension checks --------------------------------------------------
+  const { token: session2 } = await auth.createSession({ userId, tenantId, ttlSeconds: 300 });
+  check('valid active session resolves', (await auth.resolveSession(session2)) !== null);
+
+  // Suspend the tenant: active session must instantly resolve to null
+  await db.query(`UPDATE tenants SET account_status = 'suspended' WHERE id = $1`, [tenantId]);
+  check('session resolution blocked immediately when tenant is suspended', (await auth.resolveSession(session2)) === null);
+
+  const suspendedCreds = await auth.findCredentialsByEmail('owner@test.co');
+  check('credentials report suspended tenant status', auth.isTenantBlocked(suspendedCreds?.tenant_account_status));
+
+  // Reinstate tenant for remaining checks
+  await db.query(`UPDATE tenants SET account_status = 'active' WHERE id = $1`, [tenantId]);
+  check('session resolution works again once reinstated', (await auth.resolveSession(session2)) !== null);
+
+  // --- Shared rate limiting checks ----------------------------------------
+  const rlKey = 'test:login:ip:10.0.0.1';
+  const rl1 = await database.consumeRateLimit(rlKey, 2, 60);
+  check('rate limiter allows hit 1', rl1.allowed && rl1.hits === 1);
+  const rl2 = await database.consumeRateLimit(rlKey, 2, 60);
+  check('rate limiter allows hit 2 (limit reached)', rl2.allowed && rl2.hits === 2);
+  const rl3 = await database.consumeRateLimit(rlKey, 2, 60);
+  check('rate limiter blocks hit 3 (limit exceeded)', !rl3.allowed && rl3.hits === 3);
+  check('rate limiter reports positive retry_after', rl3.retryAfterSeconds > 0);
 
   await auth.recordAuditEvent({
     actorUserId: userId,

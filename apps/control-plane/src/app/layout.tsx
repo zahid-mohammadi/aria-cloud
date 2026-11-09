@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Aria Cloud & AI Studio | Multi-Tenant Control Plane (me-central-1)',
   description:
-    'Enterprise multi-tenant control plane for Aria Cloud Services & AI Studio: ElevenLabs Dari/Pashto Voiceovers, Amazon Nova Canvas Image Studio, Daily WhatsApp Voice Assistant, Stalwart Business Email, and AFN/USD HesabPay & Hawala Ledger.',
+    'Enterprise multi-tenant control plane for Aria Cloud Services & AI Studio: ElevenLabs Dari/Pashto Voiceovers, Amazon Nova Canvas Image Studio, Daily WhatsApp Voice Assistant, Stalwart Business Email, and AFN/USD HesabPay settlement.',
 };
 
 export default function RootLayout({

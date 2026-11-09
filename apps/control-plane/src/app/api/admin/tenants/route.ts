@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
 import { audit } from '@/lib/audit';
-import { pool } from '@aria-cloud/database';
+import { getAdminPool } from '@aria-cloud/database';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id');
   try {
     if (id) return NextResponse.json(await tenantDetail(id));
-    const list = await pool.query(TENANT_SUMMARY);
+    const list = await getAdminPool().query(TENANT_SUMMARY);
     return NextResponse.json({ tenants: list.rows });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
@@ -44,10 +44,17 @@ export async function POST(req: NextRequest) {
   }
 
   const status = action === 'suspend' ? 'suspended' : action === 'archive' ? 'archived' : 'active';
+
+  // Suspension blocks every session of the tenant (see resolveSession), so an
+  // admin suspending their own organization would lock themselves out.
+  if (status !== 'active' && tenantId === auth.session.tenantId) {
+    return NextResponse.json({ error: 'You cannot suspend or archive your own organization.' }, { status: 400 });
+  }
+
   await audit(req, auth.session, `admin.tenants.${action}`, { tenantId });
 
   try {
-    await pool.query(`UPDATE tenants SET account_status = $1, updated_at = now() WHERE id = $2`, [status, tenantId]);
+    await getAdminPool().query(`UPDATE tenants SET account_status = $1, updated_at = now() WHERE id = $2`, [status, tenantId]);
     return NextResponse.json({ ok: true, tenantId, status });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
@@ -55,18 +62,18 @@ export async function POST(req: NextRequest) {
 }
 
 async function tenantDetail(tenantId: string) {
-  const tenant = await pool.query(
+  const tenant = await getAdminPool().query(
     `SELECT t.id, t.business_name, t.subdomain, t.plan_tier, t.account_status,
             t.subscription_end_date, t.owner_phone, t.created_at
        FROM tenants t WHERE t.id = $1`,
     [tenantId]
   );
   const [wallet, aiWallet, users, deployments, invoices] = await Promise.all([
-    pool.query(`SELECT usd_balance_cents, afn_balance_pul FROM wallets WHERE tenant_id = $1`, [tenantId]),
-    pool.query(`SELECT credit_balance, monthly_credit_quota, elevenlabs_chars_used_mtd, bedrock_tokens_used_mtd, images_generated_mtd FROM ai_credit_wallets WHERE tenant_id = $1`, [tenantId]),
-    pool.query(`SELECT id, full_name, email, role, created_at FROM users WHERE tenant_id = $1 ORDER BY created_at`, [tenantId]),
-    pool.query(`SELECT id, app_name, framework, status, custom_domain, created_at FROM custom_app_deployments WHERE tenant_id = $1 ORDER BY created_at DESC`, [tenantId]),
-    pool.query(`SELECT id, invoice_number, amount_afn, status, due_date, paid_at FROM invoices WHERE tenant_id = $1 ORDER BY created_at DESC`, [tenantId]),
+    getAdminPool().query(`SELECT usd_balance_cents, afn_balance_pul FROM wallets WHERE tenant_id = $1`, [tenantId]),
+    getAdminPool().query(`SELECT credit_balance, monthly_credit_quota, elevenlabs_chars_used_mtd, bedrock_tokens_used_mtd, images_generated_mtd FROM ai_credit_wallets WHERE tenant_id = $1`, [tenantId]),
+    getAdminPool().query(`SELECT id, full_name, email, role, created_at FROM users WHERE tenant_id = $1 ORDER BY created_at`, [tenantId]),
+    getAdminPool().query(`SELECT id, app_name, framework, status, custom_domain, created_at FROM custom_app_deployments WHERE tenant_id = $1 ORDER BY created_at DESC`, [tenantId]),
+    getAdminPool().query(`SELECT id, invoice_number, amount_afn, status, due_date, paid_at FROM invoices WHERE tenant_id = $1 ORDER BY created_at DESC`, [tenantId]),
   ]);
 
   return {

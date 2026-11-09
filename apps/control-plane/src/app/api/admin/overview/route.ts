@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
-import { pool } from '@aria-cloud/database';
+import { getAdminPool } from '@aria-cloud/database';
 
 export const runtime = 'nodejs';
 
 /**
- * Platform-wide overview. Reads across tenants, so it relies on the database
- * connection running as a role that bypasses RLS (the local `postgres`
- * superuser, or a dedicated BYPASSRLS admin role on managed Postgres).
+ * Platform-wide overview. Reads across tenants through the admin pool, which
+ * runs as `aria_platform_admin` and is granted cross-tenant access by the
+ * explicit `platform_admin_access` RLS policy (migration 009).
  */
 export async function GET() {
   const auth = await requireAdmin();
@@ -15,15 +15,15 @@ export async function GET() {
 
   try {
     const [tenants, users, credits, deployments, audit, generations] = await Promise.all([
-      pool.query(`SELECT count(*)::int AS n FROM tenants`),
-      pool.query(`SELECT count(*)::int AS n FROM users`),
-      pool.query(`SELECT COALESCE(SUM(credit_balance), 0)::bigint AS n FROM ai_credit_wallets`),
-      pool.query(`SELECT count(*)::int AS n FROM custom_app_deployments`),
-      pool.query(
+      getAdminPool().query(`SELECT count(*)::int AS n FROM tenants`),
+      getAdminPool().query(`SELECT count(*)::int AS n FROM users`),
+      getAdminPool().query(`SELECT COALESCE(SUM(credit_balance), 0)::bigint AS n FROM ai_credit_wallets`),
+      getAdminPool().query(`SELECT count(*)::int AS n FROM custom_app_deployments`),
+      getAdminPool().query(
         `SELECT action, actor_email, target_tenant_id, created_at
            FROM admin_audit_log ORDER BY created_at DESC LIMIT 12`
       ),
-      pool.query(
+      getAdminPool().query(
         `SELECT tenant_id, modality, model_id, units_consumed, credits_deducted, created_at
            FROM ai_generation_logs ORDER BY created_at DESC LIMIT 12`
       ),

@@ -83,6 +83,18 @@ export function sessionExpiry(): Date {
   return new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
 }
 
+// --- Tenant status ---------------------------------------------------------
+
+/**
+ * Tenant states that may not use the product. Enforced at login and on every
+ * session resolution, so suspending a tenant takes effect on its next request.
+ */
+export const BLOCKED_TENANT_STATUSES = ['suspended', 'archived'] as const;
+
+export function isTenantBlocked(status: string | null | undefined): boolean {
+  return (BLOCKED_TENANT_STATUSES as readonly string[]).includes(status ?? '');
+}
+
 // --- Credentials ------------------------------------------------------------
 
 export interface CredentialsRow {
@@ -94,14 +106,19 @@ export interface CredentialsRow {
   failed_login_attempts: number;
   locked_until: Date | null;
   is_platform_admin: boolean;
+  tenant_account_status: string;
 }
 
 export async function findCredentialsByEmail(email: string): Promise<CredentialsRow | null> {
+  // `tenants` is not tenant-scoped (it is the registry), so the join is
+  // allowed before a tenant context exists.
   const res = await pool.query<CredentialsRow>(
-    `SELECT user_id, tenant_id, email, password_hash, email_verified_at,
-            failed_login_attempts, locked_until, is_platform_admin
-       FROM user_credentials
-      WHERE lower(email) = lower($1)
+    `SELECT c.user_id, c.tenant_id, c.email, c.password_hash, c.email_verified_at,
+            c.failed_login_attempts, c.locked_until, c.is_platform_admin,
+            t.account_status AS tenant_account_status
+       FROM user_credentials c
+       JOIN tenants t ON t.id = c.tenant_id
+      WHERE lower(c.email) = lower($1)
       LIMIT 1`,
     [email.trim()]
   );
@@ -182,6 +199,9 @@ export async function createSession(input: {
  * known yet, `sessions` is not tenant-scoped), then the user profile is read
  * *inside* the tenant's RLS context, so the profile read is still protected by
  * the same policy as every other table.
+ *
+ * Sessions belonging to a suspended or archived tenant resolve to null, so a
+ * suspension takes effect immediately without having to revoke each session.
  */
 export async function resolveSession(token: string | undefined): Promise<ResolvedSession | null> {
   if (!token) return null;
@@ -192,13 +212,15 @@ export async function resolveSession(token: string | undefined): Promise<Resolve
     tenant_id: string;
     expires_at: Date;
   }>(
-    `SELECT id, user_id, tenant_id, expires_at
-       FROM sessions
-      WHERE token_hash = $1
-        AND revoked_at IS NULL
-        AND expires_at > now()
+    `SELECT s.id, s.user_id, s.tenant_id, s.expires_at
+       FROM sessions s
+       JOIN tenants t ON t.id = s.tenant_id
+      WHERE s.token_hash = $1
+        AND s.revoked_at IS NULL
+        AND s.expires_at > now()
+        AND COALESCE(t.account_status, 'active') <> ALL($2::text[])
       LIMIT 1`,
-    [hashToken(token)]
+    [hashToken(token), [...BLOCKED_TENANT_STATUSES]]
   );
 
   const row = res.rows[0];
@@ -398,3 +420,4 @@ export async function setPassword(userId: string, newPassword: string): Promise<
 }
 
 export * from './mailer';
+export * from './request';

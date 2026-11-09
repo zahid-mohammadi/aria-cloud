@@ -1,13 +1,146 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { ClientBase, Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ROLE_NAME_REGEX = /^[a-z_][a-z0-9_]{0,62}$/;
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+/**
+ * Runtime database roles (created by migration 009).
+ *
+ * FORCE ROW LEVEL SECURITY does not apply to superusers or BYPASSRLS roles, so
+ * whatever login DATABASE_URL uses, every pooled connection switches to one of
+ * these roles before it is handed out. The login user must be a member:
+ *   GRANT aria_app_user, aria_platform_admin TO <login_user>;
+ */
+export const APP_DB_ROLE = process.env.ARIA_DB_APP_ROLE || 'aria_app_user';
+export const ADMIN_DB_ROLE = process.env.ARIA_DB_ADMIN_ROLE || 'aria_platform_admin';
+
+/**
+ * Switches a connection to `role` and verifies RLS will actually apply to it.
+ * Throws (and the pool discards the connection) if the role cannot be assumed
+ * or if it is a superuser / BYPASSRLS role.
+ */
+export async function assumeDatabaseRole(
+  client: Pick<ClientBase, 'query'>,
+  role: string
+): Promise<void> {
+  if (!ROLE_NAME_REGEX.test(role)) {
+    throw new Error(`Invalid database role name: ${JSON.stringify(role)}`);
+  }
+  // Identifiers cannot be bound as parameters; the regex above is the guard.
+  await client.query(`SET ROLE ${role}`);
+  const res = await client.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+    `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`
+  );
+  const attrs = res.rows[0];
+  if (!attrs || attrs.rolsuper || attrs.rolbypassrls) {
+    throw new Error(
+      `Refusing to use database role "${role}": it is a superuser or has BYPASSRLS, ` +
+        'so row-level security would not apply.'
+    );
+  }
+}
+
+const POOL_DEFAULTS = {
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+};
+
+/** Merchant/service pool. Runs as APP_DB_ROLE, so tenant RLS is enforced. */
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ...POOL_DEFAULTS,
+  onConnect: (client) => assumeDatabaseRole(client, APP_DB_ROLE),
 });
+
+let adminPoolInstance: Pool | null = null;
+
+/**
+ * Platform-admin pool, for the control plane only. Runs as ADMIN_DB_ROLE,
+ * which reaches across tenants through the explicit `platform_admin_access`
+ * policy (not BYPASSRLS). Created lazily so merchant-facing processes never
+ * open an admin connection. Callers must have already checked
+ * `session.isPlatformAdmin` and should audit what they do with it.
+ */
+export function getAdminPool(): Pool {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not configured. Refusing to open the admin pool.');
+  }
+  if (!adminPoolInstance) {
+    adminPoolInstance = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ...POOL_DEFAULTS,
+      max: 5,
+      onConnect: (client) => assumeDatabaseRole(client, ADMIN_DB_ROLE),
+    });
+  }
+  return adminPoolInstance;
+}
+
+/** Test hook: lets the verify suite point the admin pool at PGlite. */
+export function setAdminPoolForTesting(replacement: Pool | null): void {
+  adminPoolInstance = replacement;
+}
+
+// --- Rate limiting -----------------------------------------------------------
+
+export interface RateLimitResult {
+  allowed: boolean;
+  hits: number;
+  limit: number;
+  retryAfterSeconds: number;
+}
+
+/**
+ * Fixed-window rate limit backed by PostgreSQL, so it holds across every
+ * process / Lambda instance (unlike an in-memory Map).
+ *
+ * One atomic upsert per call: the first hit (or the first after the window
+ * expires) resets the counter, otherwise it increments. Fails closed: if the
+ * database is unreachable the caller gets the error.
+ */
+export async function consumeRateLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number
+): Promise<RateLimitResult> {
+  if (!process.env.DATABASE_URL) {
+    if (process.env.ARIA_DEMO_MODE === 'true') {
+      return { allowed: true, hits: 0, limit, retryAfterSeconds: 0 };
+    }
+    throw new Error('DATABASE_URL is not configured. Refusing to evaluate rate limits.');
+  }
+
+  const bucketKey = key.slice(0, 255);
+  const res = await pool.query<{ hits: number; retry_after: number }>(
+    `INSERT INTO rate_limits AS r (bucket_key, window_start, hits)
+     VALUES ($1, now(), 1)
+     ON CONFLICT (bucket_key) DO UPDATE SET
+       hits = CASE WHEN r.window_start <= now() - make_interval(secs => $2::int)
+                   THEN 1 ELSE r.hits + 1 END,
+       window_start = CASE WHEN r.window_start <= now() - make_interval(secs => $2::int)
+                           THEN now() ELSE r.window_start END
+     RETURNING hits,
+               GREATEST(0, CEIL(EXTRACT(EPOCH FROM
+                 (window_start + make_interval(secs => $2::int) - now()))))::int AS retry_after`,
+    [bucketKey, Math.max(1, Math.floor(windowSeconds))]
+  );
+
+  // Opportunistic cleanup so the table does not grow without bound.
+  if (Math.random() < 0.01) {
+    pool
+      .query(`DELETE FROM rate_limits WHERE window_start < now() - interval '1 day'`)
+      .catch((error) => console.error('[rate-limit] cleanup failed', error));
+  }
+
+  const hits = Number(res.rows[0]?.hits ?? 0);
+  return {
+    allowed: hits <= limit,
+    hits,
+    limit,
+    retryAfterSeconds: Number(res.rows[0]?.retry_after ?? windowSeconds),
+  };
+}
 
 /**
  * Executes a callback inside a PostgreSQL transaction scoped to a specific tenant.
@@ -43,6 +176,8 @@ export async function withTenantContext<T>(
     return fn(mockClient);
   }
 
+  // `pool` connections have already run SET ROLE APP_DB_ROLE (see onConnect),
+  // so the tenant_isolation_* policies apply to every query below.
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

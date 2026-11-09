@@ -5,7 +5,7 @@
  *  - a merchant cannot publish into a slug another merchant owns
  */
 import path from 'node:path';
-import { ROOT, freshDatabase, makeChecker } from './helpers.mjs';
+import { ROOT, freshDatabase, makeChecker, bindDatabaseToPglite } from './helpers.mjs';
 
 const TENANT_A = '88888888-8888-8888-8888-888888888888';
 const TENANT_B = '99999999-9999-9999-9999-999999999999';
@@ -70,11 +70,7 @@ export async function run() {
 
   // ------------------------------------------------------------- slug ownership
   const { db } = await freshDatabase();
-  database.pool.query = (text, params) => db.query(text, params);
-  database.pool.connect = async () => ({
-    query: (text, params) => db.query(text, params),
-    release: () => {},
-  });
+  bindDatabaseToPglite(database, db);
 
   await db.exec(`
     INSERT INTO tenants (id, business_name, subdomain) VALUES

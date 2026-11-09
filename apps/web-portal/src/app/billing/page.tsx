@@ -1,329 +1,95 @@
 'use client';
 
-import React, { useState } from 'react';
-import ContentLayout from '@cloudscape-design/components/content-layout';
-import Header from '@cloudscape-design/components/header';
-import Container from '@cloudscape-design/components/container';
-import Form from '@cloudscape-design/components/form';
-import FormField from '@cloudscape-design/components/form-field';
-import Input from '@cloudscape-design/components/input';
-import Tiles from '@cloudscape-design/components/tiles';
-import Button from '@cloudscape-design/components/button';
-import SpaceBetween from '@cloudscape-design/components/space-between';
-import Grid from '@cloudscape-design/components/grid';
-import Table from '@cloudscape-design/components/table';
-import StatusIndicator from '@cloudscape-design/components/status-indicator';
-import Badge from '@cloudscape-design/components/badge';
-import Box from '@cloudscape-design/components/box';
-import Flashbar, { FlashbarProps } from '@cloudscape-design/components/flashbar';
-import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useTranslation } from '@aria-cloud/ui';
 
-interface LedgerTransactionRow {
-  transactionId: string;
-  invoiceId: string;
-  method: string;
-  amountAfn: number;
-  amountUsd: string;
+interface Overview {
+  organizationName: string;
+  subscriptionTier: string;
+  usdBalanceCents: number;
+  afnBalancePul: number;
+  aiCreditBalance: number;
+  monthlyCreditQuota: number;
 }
 
-export default function BillingLedgerPage() {
-  const { t, dir } = useTranslation();
+export default function BillingPage() {
+  const { dir } = useTranslation();
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [selectedPackageAfn, setSelectedPackageAfn] = useState<string>('4500');
-  const [otpCode, setOtpCode] = useState<string>('849201');
-  const [settlingHesabPay, setSettlingHesabPay] = useState<boolean>(false);
-  const [settlingOtp, setSettlingOtp] = useState<boolean>(false);
-
-  const [ledgerHistory, setLedgerHistory] = useState<LedgerTransactionRow[]>([
-    {
-      transactionId: 'tx_hesabpay_kabul01',
-      invoiceId: 'INV-2026-1001',
-      method: t.nav.hesabpay,
-      amountAfn: 4500,
-      amountUsd: '$62.50',
-    },
-    {
-      transactionId: 'tx_handshake_herat02',
-      invoiceId: 'INV-2026-1015',
-      method: t.nav.cashAudit,
-      amountAfn: 4500,
-      amountUsd: '$62.50',
-    },
-  ]);
-
-  const [flashItems, setFlashItems] = useState<
-    FlashbarProps.MessageDefinition[]
-  >([]);
-
-  const handleHesabPayTopUp = async () => {
-    setSettlingHesabPay(true);
-    try {
-      const res = await fetch('/api/billing/settle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'HESABPAY',
-          amountAfn: Number(selectedPackageAfn),
-          invoiceId: 'INV-2026-1108',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t.common.error);
-
-      setLedgerHistory((prev) => [
-        {
-          transactionId: data.transactionId,
-          invoiceId: data.invoiceId,
-          method: t.nav.hesabpay,
-          amountAfn: data.amountAfn,
-          amountUsd: `$${(data.amountUsdCents / 100).toFixed(2)}`,
-        },
-        ...prev,
-      ]);
-
-      setFlashItems([
-        {
-          id: data.transactionId,
-          type: 'success',
-          dismissible: true,
-          onDismiss: () => setFlashItems([]),
-          header: t.alerts.verifiedSuccessTitle,
-          content: t.alerts.verifiedSuccessBody,
-        },
-      ]);
-    } catch (err) {
-      setFlashItems([
-        {
-          id: 'err-hp',
-          type: 'error',
-          dismissible: true,
-          onDismiss: () => setFlashItems([]),
-          header: t.common.error,
-          content: err instanceof Error ? err.message : t.common.error,
-        },
-      ]);
-    } finally {
-      setSettlingHesabPay(false);
-    }
-  };
-
-  const handleRedeemCashOtp = async () => {
-    setSettlingOtp(true);
-    try {
-      const res = await fetch('/api/billing/settle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'CASH_VOUCHER_OTP',
-          amountAfn: 4500,
-          otpCode,
-          invoiceId: 'INV-2026-1108',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t.common.error);
-
-      setLedgerHistory((prev) => [
-        {
-          transactionId: data.transactionId,
-          invoiceId: data.invoiceId,
-          method: t.nav.cashAudit,
-          amountAfn: data.amountAfn,
-          amountUsd: `$${(data.amountUsdCents / 100).toFixed(2)}`,
-        },
-        ...prev,
-      ]);
-
-      setFlashItems([
-        {
-          id: data.transactionId,
-          type: 'success',
-          dismissible: true,
-          onDismiss: () => setFlashItems([]),
-          header: t.alerts.verifiedSuccessTitle,
-          content: t.alerts.verifiedSuccessBody,
-        },
-      ]);
-    } catch (err) {
-      setFlashItems([
-        {
-          id: 'err-otp',
-          type: 'error',
-          dismissible: true,
-          onDismiss: () => setFlashItems([]),
-          header: t.common.error,
-          content: err instanceof Error ? err.message : t.common.error,
-        },
-      ]);
-    } finally {
-      setSettlingOtp(false);
-    }
-  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/billing/settle');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Failed to load billing.');
+        setOverview(data.overview || null);
+      } catch (e: any) {
+        setError(e.message);
+      }
+    })();
+  }, []);
 
   return (
-    <div dir={dir} className="text-start start-0 end-0">
-      <ContentLayout
-        header={
-          <SpaceBetween size="m">
-            <Flashbar items={flashItems} />
-            <Header
-              variant="h1"
-              description={t.billing.cardDesc}
-              actions={<Badge color="green">{t.billing.currentPlanName}</Badge>}
-            >
-              {t.nav.billingHeader}
-            </Header>
-          </SpaceBetween>
-        }
-      >
-        <SpaceBetween size="l">
-          <Container
-            header={<Header variant="h2">{t.billing.cardTitle}</Header>}
-          >
-            <KeyValuePairs
-              columns={3}
-              items={[
-                {
-                  label: t.billing.activePlanLabel,
-                  value: (
-                    <Box fontSize="heading-m" fontWeight="bold">
-                      #INV-2026-1108 ({t.billing.currentPlanName})
-                    </Box>
-                  ),
-                },
-                {
-                  label: t.billing.renewalCostLabel,
-                  value: (
-                    <Box fontSize="heading-m" fontWeight="bold">
-                      {t.billing.renewalCostValue}
-                    </Box>
-                  ),
-                },
-                {
-                  label: t.billing.coverageExpiryLabel,
-                  value: (
-                    <StatusIndicator type="success">
-                      {t.infra.statusActive}
-                    </StatusIndicator>
-                  ),
-                },
-              ]}
-            />
-          </Container>
+    <div dir={dir} className="billing">
+      <header className="billing-head">
+        <div>
+          <h1>Billing</h1>
+          <p>Your plan and HesabPay payments.</p>
+        </div>
+        <Link href="/dashboard" className="billing-back">← Dashboard</Link>
+      </header>
 
-          <Grid
-            gridDefinition={[
-              { colspan: { default: 12, m: 6 } },
-              { colspan: { default: 12, m: 6 } },
-            ]}
-          >
-            <Form
-              actions={
-                <Button
-                  variant="primary"
-                  iconName="external"
-                  loading={settlingHesabPay}
-                  onClick={handleHesabPayTopUp}
-                >
-                  {t.billing.payHesabpayBtn}
-                </Button>
-              }
-            >
-              <Container header={<Header variant="h2">{t.nav.hesabpay}</Header>}>
-                <SpaceBetween size="m">
-                  <FormField label={t.billing.renewalCostLabel}>
-                    <Tiles
-                      value={selectedPackageAfn}
-                      onChange={({ detail }) =>
-                        setSelectedPackageAfn(detail.value)
-                      }
-                      items={[
-                        {
-                          value: '4500',
-                          label: t.billing.renewalCostValue,
-                          description: t.billing.currentPlanName,
-                        },
-                      ]}
-                    />
-                  </FormField>
-                </SpaceBetween>
-              </Container>
-            </Form>
+      {error && <div className="billing-error">{error}</div>}
 
-            <Form
-              actions={
-                <Button
-                  variant="primary"
-                  iconName="check"
-                  loading={settlingOtp}
-                  onClick={handleRedeemCashOtp}
-                >
-                  {t.billing.cashVerifyBtn}
-                </Button>
-              }
-            >
-              <Container
-                header={<Header variant="h2">{t.nav.cashAudit}</Header>}
-              >
-                <SpaceBetween size="m">
-                  <Box variant="p" color="text-body-secondary">
-                    {t.alerts.cashPendingBody}
-                  </Box>
-                  <FormField
-                    label={t.billing.cashOtpLabel}
-                    description={t.billing.cashHint}
-                  >
-                    <Input
-                      value={otpCode}
-                      onChange={({ detail }) => setOtpCode(detail.value)}
-                      placeholder={t.billing.cashOtpPlaceholder}
-                      ariaLabel={t.billing.cashOtpLabel}
-                      inputMode="numeric"
-                    />
-                  </FormField>
-                </SpaceBetween>
-              </Container>
-            </Form>
-          </Grid>
+      <section className="billing-cards">
+        <div className="billing-card">
+          <span className="billing-label">Organization</span>
+          <b className="billing-value">{overview?.organizationName ?? '…'}</b>
+        </div>
+        <div className="billing-card">
+          <span className="billing-label">Plan</span>
+          <b className="billing-value">{overview?.subscriptionTier ?? '…'}</b>
+        </div>
+        <div className="billing-card">
+          <span className="billing-label">Balance · AFN</span>
+          <b className="billing-value">{overview ? (overview.afnBalancePul / 100).toFixed(2) : '…'}</b>
+        </div>
+        <div className="billing-card">
+          <span className="billing-label">Balance · USD</span>
+          <b className="billing-value">{overview ? `$${(overview.usdBalanceCents / 100).toFixed(2)}` : '…'}</b>
+        </div>
+      </section>
 
-          <Table
-            header={
-              <Header variant="h2" counter={`(${ledgerHistory.length})`}>
-                {t.nav.invoices}
-              </Header>
-            }
-            columnDefinitions={[
-              {
-                id: 'invoice',
-                header: t.billing.activePlanLabel,
-                cell: (item) => <Box variant="code">{item.invoiceId}</Box>,
-              },
-              {
-                id: 'method',
-                header: t.infra.colComponent,
-                cell: (item) => <Badge color="blue">{item.method}</Badge>,
-              },
-              {
-                id: 'afn',
-                header: t.billing.renewalCostLabel,
-                cell: (item) =>
-                  `${item.amountAfn.toLocaleString()} AFN (${item.amountUsd})`,
-              },
-              {
-                id: 'status',
-                header: t.infra.colStatus,
-                cell: () => (
-                  <StatusIndicator type="success">
-                    {t.infra.statusHealthy}
-                  </StatusIndicator>
-                ),
-              },
-            ]}
-            items={ledgerHistory}
-          />
-        </SpaceBetween>
-      </ContentLayout>
+      <section className="billing-section">
+        <h2>Pay with HesabPay</h2>
+        <p className="billing-muted">
+          Payment is completed via the HesabPay app — scan the QR on your invoice or
+          the payment link we send you. Settlement is recorded automatically against
+          your account; there is nothing to enter here.
+        </p>
+        <p className="billing-muted">
+          HesabPay is the only supported payment method. Cash collection and other
+          rails are disabled.
+        </p>
+      </section>
+
+      <style>{`
+        .billing { max-width: 1100px; margin: 0 auto; padding: 24px; color: #16191f; }
+        .billing-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .billing-head h1 { margin: 0; font-size: 22px; }
+        .billing-head p { margin: 4px 0 0; color: #687078; font-size: 13px; }
+        .billing-back { color: #ff9900; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .billing-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+        .billing-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .billing-card { background: #fff; border: 1px solid #e3e8ee; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+        .billing-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #687078; }
+        .billing-value { display: block; margin-top: 6px; font-size: 20px; font-weight: 800; }
+        .billing-section { background: #fff; border: 1px solid #e3e8ee; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+        .billing-section h2 { margin: 0 0 12px; font-size: 16px; }
+        .billing-muted { color: #687078; font-size: 14px; margin: 0 0 10px; }
+      `}</style>
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
+  clientIp,
   createSession,
+  enforceRateLimits,
   findCredentialsByEmail,
+  isTenantBlocked,
   recordAuditEvent,
   recordFailedLogin,
   recordSuccessfulLogin,
@@ -33,6 +36,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const ip = clientIp(req.headers);
+    const limited = await enforceRateLimits([
+      { key: `admin:login:ip:${ip}`, limit: 10, windowSeconds: 15 * 60 },
+    ]);
+    if (limited) return limited;
+
     const credentials = await findCredentialsByEmail(email);
 
     if (credentials?.locked_until && new Date(credentials.locked_until) > new Date()) {
@@ -50,7 +59,7 @@ export async function POST(req: NextRequest) {
         actorEmail: email,
         action: 'admin.login.failed',
         metadata: { reason: credentials ? 'bad_password' : 'unknown_email' },
-        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+        ipAddress: ip,
       });
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
@@ -65,10 +74,24 @@ export async function POST(req: NextRequest) {
         actorEmail: credentials.email,
         action: 'admin.login.denied',
         metadata: { reason: 'not_platform_admin' },
-        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+        ipAddress: ip,
       });
       return NextResponse.json(
         { error: 'This account is not authorized for platform administration.' },
+        { status: 403 }
+      );
+    }
+
+    if (isTenantBlocked(credentials.tenant_account_status)) {
+      await recordAuditEvent({
+        actorUserId: credentials.user_id,
+        actorEmail: credentials.email,
+        action: 'admin.login.denied',
+        metadata: { reason: 'tenant_suspended' },
+        ipAddress: ip,
+      });
+      return NextResponse.json(
+        { error: 'This account belongs to a suspended organization.' },
         { status: 403 }
       );
     }
@@ -78,7 +101,7 @@ export async function POST(req: NextRequest) {
     const { token, expiresAt } = await createSession({
       userId: credentials.user_id,
       tenantId: credentials.tenant_id,
-      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      ipAddress: ip,
       userAgent: req.headers.get('user-agent'),
       ttlSeconds: ADMIN_SESSION_TTL_SECONDS,
     });
@@ -88,7 +111,7 @@ export async function POST(req: NextRequest) {
       actorUserId: credentials.user_id,
       actorEmail: credentials.email,
       action: 'admin.login.success',
-      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      ipAddress: ip,
     });
 
     const response = NextResponse.json({

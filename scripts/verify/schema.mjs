@@ -84,5 +84,33 @@ export async function run() {
   }
   check('negative balance rejected', negativeBlocked);
 
+  // --- Platform admin access policy checks (migration 009) ----------------
+  const adminReads = await db.transaction(async (tx) => {
+    await tx.query(`SET ROLE aria_platform_admin`);
+    // Querying with NO app.current_tenant_id
+    const res = await tx.query(`SELECT count(*)::int n FROM wallets`);
+    return res.rows[0].n;
+  });
+  check('aria_platform_admin can read cross-tenant via policy', adminReads === 1, `count=${adminReads}`);
+
+  const appReadsWithoutTenant = await db.transaction(async (tx) => {
+    await tx.query(`SET ROLE aria_app_user`);
+    // Querying with NO app.current_tenant_id set
+    const res = await tx.query(`SELECT count(*)::int n FROM wallets`);
+    return res.rows[0].n;
+  });
+  check('aria_app_user without tenant context sees 0 rows', appReadsWithoutTenant === 0, `count=${appReadsWithoutTenant}`);
+
+  let adminAuditBlocked = false;
+  try {
+    await db.transaction(async (tx) => {
+      await tx.query('SET ROLE aria_platform_admin');
+      await tx.query(`DELETE FROM admin_audit_log`);
+    });
+  } catch {
+    adminAuditBlocked = true;
+  }
+  check('admin audit log is append-only even for platform admin', adminAuditBlocked);
+
   return failures();
 }

@@ -26,3 +26,55 @@ export async function freshDatabase() {
   }
   return { db, files };
 }
+
+/**
+ * A pg.Pool stand-in backed by PGlite that behaves like the real pools in
+ * packages/database: every query / checked-out client runs as `role`, so RLS
+ * and table grants are enforced exactly as in production (PGlite's default
+ * user is a superuser, which would otherwise bypass RLS and hide bugs).
+ *
+ * PGlite is a single connection, so role-scoped work is serialized with a
+ * small mutex. Fixtures written directly via `db.exec` still run as the
+ * superuser, which is what test setup wants.
+ */
+export function pgliteRolePool(db, role) {
+  let tail = Promise.resolve();
+  const lock = () => {
+    let release;
+    const next = new Promise((resolve) => (release = resolve));
+    const acquired = tail.then(() => release);
+    tail = tail.then(() => next);
+    return acquired;
+  };
+
+  return {
+    async query(text, params) {
+      const release = await lock();
+      try {
+        await db.exec(`SET ROLE ${role}`);
+        return await db.query(text, params);
+      } finally {
+        await db.exec('RESET ROLE');
+        release();
+      }
+    },
+    async connect() {
+      const release = await lock();
+      await db.exec(`SET ROLE ${role}`);
+      return {
+        query: (text, params) => db.query(text, params),
+        release: () => {
+          db.exec('RESET ROLE').finally(release);
+        },
+      };
+    },
+  };
+}
+
+/** Points the shared database module's pools at PGlite, under the runtime roles. */
+export function bindDatabaseToPglite(database, db) {
+  const appPool = pgliteRolePool(db, 'aria_app_user');
+  database.pool.query = appPool.query;
+  database.pool.connect = appPool.connect;
+  database.setAdminPoolForTesting(pgliteRolePool(db, 'aria_platform_admin'));
+}

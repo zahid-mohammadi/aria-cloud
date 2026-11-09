@@ -6,9 +6,9 @@ export const runtime = 'nodejs';
 
 /**
  * The merchant console does NOT settle payments itself. Settlement is driven
- * server-side by the HesabPay webhook or by an authenticated field agent
- * (cash OTP). This endpoint returns the real wallet state and the available
- * payment channels instead of fabricating a "SETTLED" transaction.
+ * server-side by the HesabPay webhook. This endpoint returns the real wallet
+ * state and the available payment channel instead of fabricating a "SETTLED"
+ * transaction.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       mode: 'external',
-      channels: ['hesabpay_qr', 'doorstep_cash'],
+      channels: ['hesabpay_qr'],
       message:
-        'Payment is completed via the HesabPay QR or doorstep cash. Settlement is recorded automatically — no action is needed here.',
+        'Payment is completed via the HesabPay QR. Settlement is recorded automatically — no action is needed here.',
     });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Billing request failed.' }, { status: 500 });

@@ -22,8 +22,8 @@ const RESOLUTIONS = [
 ];
 
 const ASSISTANT_MODELS = [
-  { id: 'amazon.nova-micro-v1:0', name: 'Nova Micro (fast)' },
-  { id: 'amazon.nova-lite-v1:0', name: 'Nova Lite (capable)' },
+  { id: 'aria-text-fast', name: 'Aria Multilingual Text (Fast)' },
+  { id: 'aria-text-capable', name: 'Aria Multilingual Text (Capable)' },
 ];
 
 interface Output {

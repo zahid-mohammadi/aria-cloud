@@ -159,27 +159,9 @@ export function verifyHesabPaySignature(
   return safeConstantTimeEqual(expectedHex, cleanProvided);
 }
 
-/**
- * In-memory sliding token bucket rate limiter per tenant / IP.
+/*
+ * Rate limiting lives in @aria-cloud/database (`consumeRateLimit`): it is
+ * PostgreSQL-backed so the limit holds across every gateway instance. The
+ * in-memory token bucket that used to be here was per-process and reset on
+ * every cold start.
  */
-const buckets = new Map<string, { tokens: number; lastRefillMs: number }>();
-
-export function checkTenantRateLimit(
-  key: string,
-  maxBurst = 60,
-  refillPerSecond = 2
-): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const state = buckets.get(key) || { tokens: maxBurst, lastRefillMs: now };
-  const elapsedSec = Math.max(0, (now - state.lastRefillMs) / 1000);
-  const replenished = Math.min(maxBurst, state.tokens + elapsedSec * refillPerSecond);
-
-  if (replenished < 1) {
-    buckets.set(key, { tokens: replenished, lastRefillMs: now });
-    return { allowed: false, remaining: 0 };
-  }
-
-  const nextTokens = replenished - 1;
-  buckets.set(key, { tokens: nextTokens, lastRefillMs: now });
-  return { allowed: true, remaining: Math.floor(nextTokens) };
-}

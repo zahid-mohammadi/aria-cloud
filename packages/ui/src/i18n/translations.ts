@@ -155,7 +155,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     },
     alerts: {
       cashPendingTitle: "Aria Verified Handshake Inbound",
-      cashPendingBody: "Field Agent Ahmad (ID: #KBL-08) is authorized to collect your annual fee (4,500 AFN). Verify your WhatsApp OTP below before handing over cash.",
+      cashPendingBody: "Payment is completed via HesabPay. There is no cash collection.",
       verifyCodeBtn: "Enter OTP Code",
       verifiedSuccessTitle: "Payment Confirmed via Handshake",
       verifiedSuccessBody: "4,500 AFN cash received. Your AriaCloud subscription is extended for 365 days.",
@@ -265,7 +265,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     },
     alerts: {
       cashPendingTitle: "تأیید نقدی دوطرفه آریا در جریان است",
-      cashPendingBody: "نماینده ساحوی احمد (کد: #KBL-08) مجاز به دریافت حق‌الاشتراک سالانه (۴,۵۰۰ افغانی) است. قبل از تسلیم پول، کود واتساپ را در زیر تأیید نمایید.",
+      cashPendingBody: "پرداخت از طریق حساب‌پی انجام می‌شود. دریافت نقدی وجود ندارد.",
       verifyCodeBtn: "ثبت کود واتساپ",
       verifiedSuccessTitle: "تأیید پرداخت نقدی موفقانه انجام شد",
       verifiedSuccessBody: "مبلغ ۴,۵۰۰ افغانی دریافت گردید. اشتراک آریا کلاود شما برای ۳۶۵ روز دیگر تمدید شد.",
@@ -375,7 +375,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     },
     alerts: {
       cashPendingTitle: "د نغدو پیسو دوه اړخیز تایید روان دی",
-      cashPendingBody: "سیمه ایز استازی احمد (کوډ: #KBL-08) ستاسو د کلني ګډون (۴,۵۰۰ افغانۍ) راټولولو لپاره ټاکل شوی. مهرباني وکړئ نغدې پیسې د واټساپ کوډ له تایید پرته مه ورکوئ.",
+      cashPendingBody: "تادیه د حسابپي له لارې کیږي. نغدي راټولول شتون نلري.",
       verifyCodeBtn: "د واټساپ کوډ ثبت کړئ",
       verifiedSuccessTitle: "نغدي تادیه په بریالیتوب سره تایید شوه",
       verifiedSuccessBody: "۴,۵۰۰ افغانۍ نغدې ترلاسه شوې. ستاسو د آریا کلاوډ ګډون د ۳۶۵ ورځو لپاره وغځول شو.",

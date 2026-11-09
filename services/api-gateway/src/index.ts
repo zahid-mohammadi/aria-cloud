@@ -15,13 +15,12 @@
 import http from 'http';
 import { URL } from 'url';
 import {
-  checkTenantRateLimit,
   safeConstantTimeEqual,
   verifyHesabPaySignature,
   verifyMetaWebhookSignature,
   verifyTenantJwt,
 } from './crypto-auth';
-import { pool, withTenantContext } from '@aria-cloud/database';
+import { consumeRateLimit, pool, withTenantContext } from '@aria-cloud/database';
 import { handleWhatsAppMessage } from '@aria-cloud/agent-runtime';
 // The gateway runs on Node, so it can import the full module (unlike edge
 // middleware, which needs the constants subpath).
@@ -147,7 +146,7 @@ async function resolveTenantByPhone(phone: string): Promise<string | null> {
   const res = await pool.query<{ id: string }>(
     `SELECT id FROM tenants
       WHERE regexp_replace(owner_phone, '\\D', '', 'g') = $1
-        AND account_status <> 'suspended'
+        AND COALESCE(account_status, 'active') NOT IN ('suspended', 'archived')
       LIMIT 1`,
     [digits]
   );
@@ -165,13 +164,27 @@ export async function handleApiGatewayRequest(
     return jsonResponse(204, {});
   }
 
-  // Rate-limit check per client IP or Authorization token
-  const rateKey = req.clientIp || 'unknown';
-  const rate = checkTenantRateLimit(rateKey, 90, 3);
-  if (!rate.allowed) {
-    return jsonResponse(429, {
-      error: 'Too Many Requests — Tenant rate limit exceeded on api.ariacloudservices.org',
-    });
+  // Rate limit per client IP, shared across every gateway instance via
+  // PostgreSQL (the previous in-memory bucket reset on each cold start and was
+  // per-instance, so it limited nothing once scaled out).
+  // Exempt: /health (load-balancer probes) and /webhooks/* (provider traffic
+  // from a few shared IPs; those routes are HMAC-verified and fail closed, so
+  // throttling them would only drop legitimate payment notifications).
+  const rateLimited = req.path !== '/health' && !req.path.startsWith('/webhooks/');
+  if (rateLimited) {
+    try {
+      const rate = await consumeRateLimit(`gateway:ip:${req.clientIp || 'unknown'}`, 180, 60);
+      if (!rate.allowed) {
+        const limited = jsonResponse(429, {
+          error: 'Too Many Requests — rate limit exceeded on api.ariacloudservices.org',
+        });
+        limited.headers = { ...limited.headers, 'Retry-After': String(rate.retryAfterSeconds) };
+        return limited;
+      }
+    } catch (error) {
+      console.error('[gateway] rate limiter unavailable', error);
+      return jsonResponse(503, { error: 'Service temporarily unavailable' });
+    }
   }
 
   try {

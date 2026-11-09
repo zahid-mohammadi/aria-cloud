@@ -9,32 +9,15 @@ export async function GET(req: NextRequest) {
 
   const tenantId = req.nextUrl.searchParams.get('tenantId') || auth.session.tenantId;
 
-  if (process.env.DATABASE_URL) {
-    try {
-      const overview = await getTenantOverview(tenantId);
-      if (overview) {
-        return NextResponse.json({ mode: 'live', overview });
-      }
-    } catch (error: any) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const overview = await getTenantOverview(tenantId);
+    if (overview) {
+      return NextResponse.json({ mode: 'live', overview });
     }
+    return NextResponse.json({ error: 'TENANT_NOT_FOUND' }, { status: 404 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({
-    mode: 'simulated',
-    overview: {
-      tenantId,
-      organizationName: 'Pamir Saffron & Logistics Ltd.',
-      subscriptionTier: 'pro_studio',
-      usdBalanceCents: 14250,
-      afnBalancePul: 685000,
-      aiCreditBalance: 148420,
-      monthlyCreditQuota: 150000,
-      elevenlabsCharsUsedMtd: 14280,
-      bedrockTokensUsedMtd: 89400,
-      imagesGeneratedMtd: 18,
-    },
-  });
 }
 
 export async function POST(req: NextRequest) {
@@ -44,49 +27,24 @@ export async function POST(req: NextRequest) {
     await audit(req, auth.session, 'api.wallet');
 
     const body = await req.json();
-    const {
-      action,
-      otpCode,
-      packCredits = 50000,
-      amountAfn = 350,
-    } = body;
+    const { action, packCredits = 50000, amountAfn = 350 } = body;
 
     const tenantId = auth.session.tenantId;
 
-    if (action === 'redeem_hawala_otp') {
-      if (!otpCode || !/^\d{6}$/.test(String(otpCode))) {
-        return NextResponse.json(
-          { error: 'Invalid Hawala OTP format. Must be a 6-digit numeric code.' },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({
-        status: 'VERIFIED',
-        reference: `HWL-KBL-${otpCode}`,
-        creditedAfn: 1500,
-        creditedAiCredits: 150000,
-        message: 'Hawala voucher verified with row-level lock and credited to tenant wallet.',
-      });
-    }
-
     if (action === 'buy_credit_pack') {
-      if (process.env.DATABASE_URL) {
-        await withTenantContext(tenantId, async (client) => {
-          await client.query(
-            `INSERT INTO ai_credit_wallets (tenant_id) VALUES ($1)
-             ON CONFLICT (tenant_id) DO NOTHING`,
-            [tenantId]
-          );
-          await client.query(
-            `UPDATE ai_credit_wallets
-             SET credit_balance = credit_balance + $1,
-                 updated_at = NOW()
-             WHERE tenant_id = $2`,
-            [packCredits, tenantId]
-          );
-        });
-      }
+      await withTenantContext(tenantId, async (client) => {
+        await client.query(
+          `INSERT INTO ai_credit_wallets (tenant_id) VALUES ($1)
+           ON CONFLICT (tenant_id) DO NOTHING`,
+          [tenantId]
+        );
+        await client.query(
+          `UPDATE ai_credit_wallets
+           SET credit_balance = credit_balance + $1, updated_at = NOW()
+           WHERE tenant_id = $2`,
+          [packCredits, tenantId]
+        );
+      });
 
       return NextResponse.json({
         status: 'SETTLED',

@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
+  clientIp,
   createSession,
+  enforceRateLimits,
   findCredentialsByEmail,
+  isTenantBlocked,
   recordFailedLogin,
   recordSuccessfulLogin,
   verifyPassword,
@@ -37,6 +40,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Per-IP cap on top of the per-account lockout below: the lockout alone
+    // does not stop one client trying a common password across many accounts.
+    const ip = clientIp(req.headers);
+    const limited = await enforceRateLimits([
+      { key: `portal:login:ip:${ip}`, limit: 30, windowSeconds: 15 * 60 },
+    ]);
+    if (limited) return limited;
+
     const credentials = await findCredentialsByEmail(email);
 
     if (credentials?.locked_until && new Date(credentials.locked_until) > new Date()) {
@@ -56,12 +67,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
+    // Checked only after the password, so suspension status cannot be used to
+    // probe which email addresses have accounts.
+    if (isTenantBlocked(credentials.tenant_account_status)) {
+      return NextResponse.json(
+        { error: 'This account is suspended. Please contact AriaCloud support.' },
+        { status: 403 }
+      );
+    }
+
     await recordSuccessfulLogin(credentials.user_id);
 
     const { token, expiresAt } = await createSession({
       userId: credentials.user_id,
       tenantId: credentials.tenant_id,
-      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      ipAddress: ip,
       userAgent: req.headers.get('user-agent'),
     });
 

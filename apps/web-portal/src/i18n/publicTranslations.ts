@@ -206,7 +206,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
       listenSample: "شنیدن نمونه صدای طبیعی",
       samplePlaying: "در حال پخش...",
       trustStrip: ["سه‌زبانه: دری، پشتو و انگلیسی", "بدون نیاز به کارت خارجی", "پرداخت به افغانی"],
-      quickSpecs: ["وب‌سایت هوشمند به سه زبان", "ایمیل تجارتی (SPF/DKIM)", "پرداخت محلی — حساب‌پی یا نقد", "جداسازی داده هر مشتری"],
+      quickSpecs: ["وب‌سایت هوشمند به سه زبان", "ایمیل تجارتی (SPF/DKIM)", "پرداخت محلی — حساب‌پی", "جداسازی داده هر مشتری"],
     },
     consolePreview: {
       title: "کنسول آریا کلاود",
@@ -222,7 +222,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         edge: "شبکه لبه جهانی",
         backbone: "ابر منطقوی",
         coreAi: "هوش آریا و دیتابیس",
-        settlement: "حساب‌پی / نقد با OTP",
+        settlement: "حساب‌پی",
       },
     },
     pillars: {
@@ -238,7 +238,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
       p3Desc: "دامنه اختصاصی (.af و .com) همراه با ایمیل تأییدشده (SPF/DKIM).",
       p3Tag: "ارسال تأییدشده",
       p4Title: "پرداخت محلی",
-      p4Desc: "پرداخت به افغانی — از طریق QR حساب‌پی یا نقد در محل با کود تأییدی.",
+      p4Desc: "پرداخت به افغانی — از طریق QR حساب‌پی.",
       p4Tag: "بدون کارت خارجی",
     },
     catalog: {
@@ -268,7 +268,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         ],
         settlement: [
           { id: "hesabpay-qr", title: "پرداخت حساب‌پی", desc: "پرداخت دیجیتال به افغانی با QR حساب‌پی.", tag: "افغانی", metric: "حساب‌پی", linkText: "پرداخت" },
-          { id: "cash-otp-desk", title: "نقد در محل", desc: "نماینده برای دریافت نقد مراجعه می‌کند و پرداخت با کود تأییدی ثبت می‌شود.", tag: "نقد", metric: "OTP", linkText: "درخواست نماینده" },
+          { id: "hesabpay-desk", title: "پرداخت حساب‌پی", desc: "پرداخت دیجیتال امن از طریق حساب‌پی؛ ثبت پرداخت خودکار است.", tag: "دیجیتال", metric: "QR", linkText: "پرداخت با حساب‌پی" },
           { id: "transparent-ledger", title: "ثبت مالی شفاف", desc: "هر پرداخت در دفتر مالی ثبت و قابل پیگیری است.", tag: "شفاف", metric: "دفتر", linkText: "مشاهده" },
         ],
         edge: [
@@ -309,7 +309,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         { id: "clinics", title: "کلینیک‌ها و داکتران", headline: "نوبت‌دهی و تقسیم اوقات داکتران", desc: "وب‌سایت کلینیک با ثبت ساعات حضور داکتران، لیست آزمایش‌ها و رزرو نوبت از واتساپ.", deliverables: ["نوبت‌دهی واتساپ", "دامنه کلینیک", "لیست آزمایش‌ها"], ctaText: "مشاهده نمونه کلینیک" },
         { id: "exporters", title: "صادرکنندگان زعفران و جلغوزه", headline: "ویترین بین‌المللی محصولات", desc: "فروشگاه چندزبانه برای نمایش گواهی‌های کیفیت و دریافت درخواست قیمت از خریداران خارجی.", deliverables: ["سایت انگلیسی و عربی", "ایمیل تأییدشده", "کاتالوگ محصولات"], ctaText: "مشاهده نمونه صادرات" },
         { id: "education", title: "مکاتب و نهادهای آموزشی", headline: "دستیار درسی چندزبانه", desc: "پلتفرم آموزشی با دستیار هوش مصنوعی برای حل سوالات و نشر مضامین.", deliverables: ["دستیار درسی", "کتابخانه دیجیتال", "اپلیکیشن محصلین"], ctaText: "مشاهده نمونه معارف" },
-        { id: "merchants", title: "دکان‌ها و اصناف", headline: "کاتالوگ دیجیتال محصولات", desc: "معرفی دکان و محصولات با پرداخت حساب‌پی یا نقد در محل.", deliverables: ["کاتالوگ محصولات", "پرداخت حساب‌پی", "سایت موبایلی"], ctaText: "مشاهده نمونه دکان" },
+        { id: "merchants", title: "دکان‌ها و اصناف", headline: "کاتالوگ دیجیتال محصولات", desc: "معرفی دکان و محصولات با پرداخت حساب‌پی.", deliverables: ["کاتالوگ محصولات", "پرداخت حساب‌پی", "سایت موبایلی"], ctaText: "مشاهده نمونه دکان" },
       ],
     },
     pricing: {
@@ -349,7 +349,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
     faq: {
       title: "پرسش‌های متداول",
       q1: "چگونه بدون کارت بانکی پرداخت کنم؟",
-      a1: "می‌توانید با اپلیکیشن حساب‌پی پرداخت کنید یا گزینه پرداخت نقدی را انتخاب کنید. نماینده برای دریافت نقد مراجعه کرده و پرداخت با کود تأییدی ثبت می‌شود.",
+      a1: "با اپلیکیشن حساب‌پی پرداخت کنید. پرداخت به‌صورت خودکار ثبت می‌شود.",
       q2: "آیا سایت در انترنت ضعیف کار می‌کند؟",
       a2: "بلی. سایت‌ها به‌صورت PWA ساخته می‌شوند و پس از نخستین بازدید، بخشی از محتوا به‌صورت آفلاین قابل مشاهده است.",
       q3: "چگونه سایت خود را تغییر دهم؟",
@@ -383,7 +383,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
       listenSample: "طبیعي غږیزه نمونه واورئ",
       samplePlaying: "خپرېږي...",
       trustStrip: ["درې ژبی: دري، پښتو، انګلیسي", "بهرني کارت ته اړتیا نشته", "په افغانیو تادیه"],
-      quickSpecs: ["په دریو ژبو هوښیار سایټ", "سوداګریز ایمیل (SPF/DKIM)", "محلي تادیه — حسابپی یا نغدي", "څو اړخیز جلاوالی"],
+      quickSpecs: ["په دریو ژبو هوښیار سایټ", "سوداګریز ایمیل (SPF/DKIM)", "محلي تادیه — حسابپی", "څو اړخیز جلاوالی"],
     },
     consolePreview: {
       title: "د آریا کلاوډ کنسول",
@@ -399,7 +399,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         edge: "نړیواله څنډه ییزه شبکه",
         backbone: "ابر منطقوی",
         coreAi: "د آریا هوښ او ډیټابیس",
-        settlement: "حسابپی / نغدي د OTP سره",
+        settlement: "حسابپی",
       },
     },
     pillars: {
@@ -415,7 +415,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
       p3Desc: "خپل ډومین (.af او .com) د تایید شوي ایمیل سره (SPF/DKIM).",
       p3Tag: "تایید شوی لېږل",
       p4Title: "محلي تادیه",
-      p4Desc: "په افغانیو تادیه — د حسابپی QR یا په ځای کې نغدي د تایید کوډ سره.",
+      p4Desc: "په افغانیو تادیه — د حسابپی QR.",
       p4Tag: "بهرني کارت ته اړتیا نشته",
     },
     catalog: {
@@ -445,7 +445,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         ],
         settlement: [
           { id: "hesabpay-qr", title: "حسابپي تادیه", desc: "په افغانیو ډیجیټل تادیه د حسابپي QR له لارې.", tag: "افغانۍ", metric: "حسابپي", linkText: "تادیه" },
-          { id: "cash-otp-desk", title: "په ځای کې نغدي", desc: "استازی د نغدو اخیستو لپاره راځي او تادیه د تایید کوډ سره ثبت کیږي.", tag: "نغدي", metric: "OTP", linkText: "استازی وغواړئ" },
+          { id: "hesabpay-desk", title: "د حسابپي تادیه", desc: "د حسابپي له لارې خوندي ډیجیټل تادیه؛ ثبت یې اتوماتیک دی.", tag: "ډیجیټل", metric: "QR", linkText: "د حسابپي تادیه" },
           { id: "transparent-ledger", title: "شفاف مالي ثبت", desc: "هره تادیه په مالي دفتر کې ثبت او د تعقیب وړ ده.", tag: "شفاف", metric: "دفتر", linkText: "وګورئ" },
         ],
         edge: [
@@ -486,7 +486,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         { id: "clinics", title: "کلینیکونه او ډاکټران", headline: "د ډاکټرانو وخت او نوبت اخیستل", desc: "د کلینیک سایټ د ډاکټرانو د کاري وخت، د معایناتو لړلیک او د واټساپ له لارې نوبت سره.", deliverables: ["واټساپ نوبت", "کلینیک ډومین", "د معایناتو لړلیک"], ctaText: "د کلینیک نمونه" },
         { id: "exporters", title: "زعفران او جلغوزي صادرونکي", headline: "نړیوال نندارتون", desc: "څو ژبی پلورنځی د کیفیت سندونو او بهرنیو پیرودونکو لپاره.", deliverables: ["انګلیسي او عربي سایټ", "تایید شوی ایمیل", "محصولاتو کتلاګ"], ctaText: "د صادراتو نمونه" },
         { id: "education", title: "ښوونځي او تعلیمي ادارې", headline: "څو ژبی درسي مرستیال", desc: "تعلیمي پلیټ فارم د درسي پوښتنو حل لپاره د مصنوعي هوښ سره.", deliverables: ["درسي مرستیال", "ډیجیټل کتابتون", "زده کوونکو اپلیکیشن"], ctaText: "د ښوونځي نمونه" },
-        { id: "merchants", title: "هټۍ او اصناف", headline: "ډیجیټل کتلاګ", desc: "د هټۍ او محصولاتو پېژندنه د حسابپي یا نغدي تادیې سره.", deliverables: ["محصولاتو کتلاګ", "حسابپي تادیه", "موبایلي سایټ"], ctaText: "د هټۍ نمونه" },
+        { id: "merchants", title: "هټۍ او اصناف", headline: "ډیجیټل کتلاګ", desc: "د هټۍ او محصولاتو پېژندنه د حسابپي تادیې سره.", deliverables: ["محصولاتو کتلاګ", "حسابپي تادیه", "موبایلي سایټ"], ctaText: "د هټۍ نمونه" },
       ],
     },
     pricing: {
@@ -526,7 +526,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
     faq: {
       title: "پوښتنې",
       q1: "پرته له بانکي کارت څنګه پیسې ورکړم؟",
-      a1: "د حسابپي اپلیکیشن له لارې پیسې ورکړئ، یا نغدي انتخاب کړئ. استازی نغدي اخلي او تادیه د تایید کوډ سره ثبت کیږي.",
+      a1: "د حسابپي اپلیکیشن له لارې پیسې ورکړئ. تادیه په اتوماتيک ډول ثبت کیږي.",
       q2: "آیا سایټ په ضعیف انټرنیټ کې کار کوي؟",
       a2: "هو. سایټونه د PWA په توګه جوړیږي او له لومړۍ کتنې وروسته برخه محتوا آفلاین لیدل کیږي.",
       q3: "سایټ څنګه بدل کړم؟",
@@ -560,7 +560,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
       listenSample: "Hear a natural voice sample",
       samplePlaying: "Playing…",
       trustStrip: ["Trilingual: Dari, Pashto, English", "No foreign cards required", "Pays in Afghanis"],
-      quickSpecs: ["AI websites in three languages", "Business email (SPF/DKIM)", "Local payment — HesabPay or cash", "Multi-tenant isolation"],
+      quickSpecs: ["AI websites in three languages", "Business email (SPF/DKIM)", "Local payment — HesabPay", "Multi-tenant isolation"],
     },
     consolePreview: {
       title: "AriaCloud console",
@@ -576,7 +576,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         edge: "Global edge network",
         backbone: "ابر منطقوی",
         coreAi: "Aria AI & database",
-        settlement: "HesabPay / cash OTP",
+        settlement: "HesabPay",
       },
     },
     pillars: {
@@ -592,7 +592,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
       p3Desc: "Custom domains (.af, .com) with verified email (SPF/DKIM).",
       p3Tag: "Verified sending",
       p4Title: "Local payments",
-      p4Desc: "Pay in Afghanis — HesabPay QR or doorstep cash with an OTP handshake.",
+      p4Desc: "Pay in Afghanis — HesabPay QR.",
       p4Tag: "No foreign cards",
     },
     catalog: {
@@ -622,7 +622,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         ],
         settlement: [
           { id: "hesabpay-qr", title: "HesabPay checkout", desc: "Digital payment in Afghanis via HesabPay QR.", tag: "AFN", metric: "HesabPay", linkText: "Pay" },
-          { id: "cash-otp-desk", title: "Doorstep cash", desc: "An agent collects cash and the payment is verified with a code.", tag: "Cash", metric: "OTP", linkText: "Request agent" },
+          { id: "hesabpay-desk", title: "HesabPay", desc: "Pay digitally with the HesabPay app; settlement is recorded automatically.", tag: "Digital", metric: "QR", linkText: "Pay with HesabPay" },
           { id: "transparent-ledger", title: "Transparent ledger", desc: "Every payment is recorded and traceable.", tag: "Transparent", metric: "Ledger", linkText: "View" },
         ],
         edge: [
@@ -663,7 +663,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
         { id: "clinics", title: "Clinics & doctors", headline: "Doctor schedules & WhatsApp booking", desc: "A clinic site with doctor hours, a test catalog, and appointment booking via WhatsApp.", deliverables: ["WhatsApp booking", "Clinic domain", "Test catalog"], ctaText: "Explore clinic blueprint" },
         { id: "exporters", title: "Saffron & pine nut exporters", headline: "International product showcase", desc: "A multilingual storefront to display quality certificates and receive buyer inquiries.", deliverables: ["English & Arabic site", "Verified email", "Product catalog"], ctaText: "Explore export blueprint" },
         { id: "education", title: "Schools & universities", headline: "Multilingual study assistant", desc: "An education platform with an AI assistant for solving questions and publishing materials.", deliverables: ["Study assistant", "Digital library", "Student app"], ctaText: "Explore education blueprint" },
-        { id: "merchants", title: "Local merchants & shops", headline: "Digital product catalog", desc: "Showcase your shop and products with HesabPay or doorstep cash payment.", deliverables: ["Product catalog", "HesabPay checkout", "Mobile site"], ctaText: "Explore merchant blueprint" },
+        { id: "merchants", title: "Local merchants & shops", headline: "Digital product catalog", desc: "Showcase your shop and products with HesabPay payment.", deliverables: ["Product catalog", "HesabPay checkout", "Mobile site"], ctaText: "Explore merchant blueprint" },
       ],
     },
     pricing: {
@@ -703,7 +703,7 @@ export const publicTranslations: Record<PublicLanguage, PublicTranslationSchema>
     faq: {
       title: "Frequently asked questions",
       q1: "How do I pay without a bank card?",
-      a1: "Pay digitally with the HesabPay app, or choose cash collection. An agent visits you, collects cash, and the payment is verified with a code.",
+      a1: "Pay digitally with the HesabPay app. Settlement is recorded automatically.",
       q2: "Does the site work on slow internet?",
       a2: "Yes. Sites are built as PWAs, so after the first visit part of the content remains viewable offline.",
       q3: "How do I make changes to my site?",

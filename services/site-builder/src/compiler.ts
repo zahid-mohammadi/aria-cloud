@@ -353,6 +353,7 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
 <title>${esc(schema.header.businessName.fa)} — ${esc(schema.header.tagline.fa)}</title>
 <meta name="description" content="${esc(schema.hero.subheadline.fa)}">
 <meta name="theme-color" content="${palette.primary}">
+<link rel="manifest" href="/manifest.webmanifest">
 <style>${css}</style>
 </head>
 <body data-layout="${schema.layout}" data-theme="${schema.theme}" data-lang="fa" data-whatsapp="${esc(schema.whatsappCta.phoneNumber)}" data-merchant="${esc(merchantId)}"${schema.industry === 'retail' ? ' class="has-cart"' : ''}>

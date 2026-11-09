@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
+  clientIp,
+  enforceRateLimits,
   findCredentialsByEmail,
   issueAuthToken,
   sendTransactionalEmail,
@@ -25,6 +27,15 @@ export async function POST(req: NextRequest) {
   // Always return the same response, whether or not the account exists, so
   // this endpoint cannot be used to enumerate merchants.
   try {
+    // Limits apply whether or not the account exists, so a 429 reveals
+    // nothing. The per-email cap stops this endpoint being used to flood a
+    // merchant's inbox.
+    const limited = await enforceRateLimits([
+      { key: `portal:forgot:ip:${clientIp(req.headers)}`, limit: 5, windowSeconds: 15 * 60 },
+      { key: `portal:forgot:email:${email.toLowerCase()}`, limit: 3, windowSeconds: 60 * 60 },
+    ]);
+    if (limited) return limited;
+
     const credentials = await findCredentialsByEmail(email);
 
     if (credentials) {
