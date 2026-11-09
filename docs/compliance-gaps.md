@@ -44,15 +44,23 @@ as a checkbox to be added later.
 
 | Item | Status | Location |
 | :--- | :--- | :--- |
-| `ofac_screening_status` / `ofac_screened_at` columns | **stub** — `DEFAULT 'clear'`, never written or read | `packages/database/migrations/001_core_multi_tenant_schema.sql:37-38` |
-| Screening at tenant creation | **missing** | `packages/auth/src/index.ts` (`createAccount` — no screening call) |
-| Screening at field-agent creation | **missing** | `services/billing/scripts/create-agent.mjs` |
-| Screening of payers (HesabPay mobile, cash) | **missing** | `services/billing/src/index.ts` |
-| SDN list / screening vendor integration | **missing** | — |
-| Blocking a `blocked` status tenant at login | **present but unused** — no code path sets `blocked` | `packages/auth/src/index.ts:92-95` (`isTenantBlocked` only checks `suspended`/`archived`) |
+| `ofac_screening_status` / `ofac_screened_at` columns | **now enforced** — default `'unscreened'`; set by admin or the matcher | `packages/database/migrations/010_...` |
+| In-house OFAC matcher (`screenParty`) | **real** — matches against the official SDN CSV | `packages/auth/src/screening.ts` |
+| Admin "Screen now" action | **real** — runs the matcher, stores `clear`/`flagged_review`, audits matches | `apps/control-plane/.../api/admin/tenants/route.ts` |
+| Screening at tenant creation | **manual** — admin screens each tenant (or wire the hook into signup) | — |
+| Screening of payers (HesabPay) | **partial** — settlement blocks `blocked` tenants; payer name not provided by the webhook | `services/billing/src/index.ts` |
+| Blocking a `blocked` status tenant at login | **real** — login + session + settlement all refuse `blocked` | `packages/auth/src/index.ts` |
+| SDN list refresh | **script** — `scripts/download-ofac-list.mjs` (run on a schedule) | — |
+| Commercial vendor (aliases, transliteration) | **missing** — in-house matcher is a first line, not a substitute | — |
 
-**Reality:** the `ofac_screening_status = 'clear'` default is *worse than nothing* —
-it gives the appearance of screening where none happens.
+**Reality:** screening is now real but *first-line only*. The in-house matcher
+normalizes names and does token/substring + light fuzzy matching against the
+official SDN CSV, returns `flagged_review` (never `blocked`) on any hit, and
+`unscreened` when no list is configured. It does **not** catch aliases or
+Dari/Pashto transliterations, and it can false-positive on common names — a
+human must confirm. Counsel should decide whether this satisfies the screening
+obligation or whether a commercial vendor (World-Check, ComplyAdvantage, etc.)
+is required.
 
 ### 2.2 Money transmission / AML / KYC (Da Afghanistan Bank + US MSB rules)
 

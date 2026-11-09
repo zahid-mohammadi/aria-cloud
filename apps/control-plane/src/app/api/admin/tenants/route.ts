@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-session';
 import { audit } from '@/lib/audit';
 import { getAdminPool } from '@aria-cloud/database';
+import { screenParty } from '@aria-cloud/auth';
 
 export const runtime = 'nodejs';
 
@@ -39,6 +40,39 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { action, tenantId } = body;
+
+  if (action === 'screen') {
+    if (!tenantId) {
+      return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+    }
+    const row = await getAdminPool().query(
+      `SELECT t.business_name, u.full_name AS owner_name
+         FROM tenants t
+         LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'owner'
+        WHERE t.id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    if (row.rowCount === 0) {
+      return NextResponse.json({ error: 'TENANT_NOT_FOUND' }, { status: 404 });
+    }
+
+    const result = await screenParty([row.rows[0].business_name, row.rows[0].owner_name].filter(Boolean));
+
+    await getAdminPool().query(
+      `UPDATE tenants SET ofac_screening_status = $1, ofac_screened_at = now() WHERE id = $2`,
+      [result.status, tenantId]
+    );
+    await audit(req, auth.session, 'admin.tenants.screen', {
+      tenantId,
+      metadata: {
+        status: result.status,
+        matchedNames: result.matchedNames,
+        listSize: result.listSize,
+        source: result.source,
+      },
+    });
+    return NextResponse.json({ ok: true, tenantId, screening: result });
+  }
 
   if (action === 'set_screening') {
     const valid = ['unscreened', 'screening', 'clear', 'flagged_review', 'blocked'];

@@ -104,6 +104,26 @@ export default function TenantsPage() {
     }
   }
 
+  async function screenNow() {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/tenants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'screen', tenantId: selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Screening failed.');
+      await openTenant(selected);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     loadList();
   }, []);
@@ -177,6 +197,7 @@ export default function TenantsPage() {
                   <button className="tn-btn tn-btn-archive" disabled={busy} onClick={() => setStatus('archive')}>Archive</button>
                 </div>
                 <div className="tn-actions">
+                  <button className="tn-btn tn-btn-run" disabled={busy} onClick={screenNow}>Screen now</button>
                   <button className="tn-btn tn-btn-pause" disabled={busy} onClick={() => setCompliance('set_screening', 'blocked')}>OFAC Block</button>
                   <button className="tn-btn tn-btn-run" disabled={busy} onClick={() => setCompliance('set_screening', 'clear')}>OFAC Clear</button>
                 </div>

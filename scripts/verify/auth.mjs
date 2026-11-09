@@ -7,6 +7,8 @@
  * log's append-only guarantee.
  */
 import path from 'node:path';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import { ROOT, freshDatabase, makeChecker, bindDatabaseToPglite } from './helpers.mjs';
 
 export async function run() {
@@ -123,6 +125,27 @@ export async function run() {
     updateBlocked = true;
   }
   check('audit log is append-only for the app role', updateBlocked);
+
+  // --- in-house OFAC screening ---------------------------------------------
+  delete process.env.OFAC_LIST_PATH;
+  auth.resetScreeningCache();
+  const noList = await auth.screenParty(['Some Business']);
+  check('screenParty without a list returns unscreened', noList.status === 'unscreened');
+
+  const listPath = path.join(os.tmpdir(), `ofac-test-${Date.now()}.csv`);
+  await fs.writeFile(listPath, 'ent_num,SDN_Name,SDN_Type\n1,"AHMAD TEST TARGET",individual\n');
+  process.env.OFAC_LIST_PATH = listPath;
+  auth.resetScreeningCache();
+
+  const hit = await auth.screenParty(['Ahmad Test Target']);
+  check('screenParty flags a matching name', hit.status === 'flagged_review' && hit.matchedNames.includes('AHMAD TEST TARGET'));
+
+  const miss = await auth.screenParty(['Unrelated Saffron Co']);
+  check('screenParty clears a non-matching name', miss.status === 'clear' && miss.listSize === 1);
+
+  delete process.env.OFAC_LIST_PATH;
+  auth.resetScreeningCache();
+  await fs.unlink(listPath);
 
   return failures();
 }
