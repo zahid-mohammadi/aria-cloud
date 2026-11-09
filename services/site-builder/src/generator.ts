@@ -14,7 +14,18 @@ import {
   CreateInvalidationCommand,
 } from '@aws-sdk/client-cloudfront';
 import { withTenantContext } from '@aria-cloud/database';
-import { UniversalSiteSchema, IndustryType, LocalizedString } from './types';
+import {
+  UniversalSiteSchema,
+  IndustryType,
+  LocalizedString,
+  DoctorProfile,
+  DiagnosticTestItem,
+  CourseCurriculum,
+  FreightRoute,
+  ExportCommodity,
+  CatalogProduct,
+  ServiceOffering,
+} from './types';
 import { compileUniversalSiteHtml } from './compiler';
 import { claimSlug } from './ownership';
 
@@ -186,6 +197,144 @@ function coerceString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
 }
 
+function coerceNumber(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+function coerceList(raw: unknown): unknown[] {
+  return Array.isArray(raw) ? raw : [];
+}
+
+function coerceStringArray(raw: unknown, fallback: string[]): string[] {
+  return Array.isArray(raw) && raw.length ? raw.map((x) => String(x)).slice(0, 8) : fallback;
+}
+
+const EMPTY: LocalizedString = { fa: '', ps: '', en: '' };
+
+function hasName(t: LocalizedString): boolean {
+  return Boolean(t.fa.trim() || t.en.trim() || t.ps.trim());
+}
+
+function coerceItems<T>(
+  raw: unknown,
+  fallback: T[],
+  fn: (item: unknown, i: number) => T | null,
+  min = 1
+): T[] {
+  const out = coerceList(raw)
+    .map((item, i) => fn(item, i))
+    .filter((x): x is T => x !== null);
+  return out.length >= min ? out : fallback;
+}
+
+function coerceDoctor(raw: unknown, i: number): DoctorProfile | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const name = coerceLocalized(d.name, EMPTY);
+  if (!hasName(name)) return null;
+  return {
+    id: coerceString(d.id, `dr-${i + 1}`),
+    name,
+    specialty: coerceLocalized(d.specialty, name),
+    qualifications: coerceLocalized(d.qualifications, EMPTY),
+    consultationFeeAfn: coerceNumber(d.consultationFeeAfn, 500),
+    availableDays: coerceStringArray(d.availableDays, ['Sat', 'Sun', 'Mon', 'Tue', 'Wed']),
+    appointmentSlots: coerceStringArray(d.appointmentSlots, ['09:00 - 12:00', '14:00 - 18:00']),
+  };
+}
+
+function coerceTest(raw: unknown, i: number): DiagnosticTestItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const name = coerceLocalized(d.name, EMPTY);
+  if (!hasName(name)) return null;
+  return {
+    id: coerceString(d.id, `test-${i + 1}`),
+    name,
+    category: coerceLocalized(d.category, { fa: 'معاینه عمومی', ps: 'عمومي معاینه', en: 'General' }),
+    priceAfn: coerceNumber(d.priceAfn, 300),
+    turnaroundHours: coerceNumber(d.turnaroundHours, 24),
+  };
+}
+
+function coerceCourse(raw: unknown, i: number): CourseCurriculum | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const title = coerceLocalized(d.title, EMPTY);
+  if (!hasName(title)) return null;
+  return {
+    id: coerceString(d.id, `course-${i + 1}`),
+    title,
+    description: coerceLocalized(d.description, title),
+    durationMonths: coerceNumber(d.durationMonths, 6),
+    feeAfn: coerceNumber(d.feeAfn, 3000),
+    instructorName: coerceLocalized(d.instructorName, title),
+    schedule: coerceLocalized(d.schedule, EMPTY),
+  };
+}
+
+function coerceRoute(raw: unknown, i: number): FreightRoute | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const origin = coerceLocalized(d.origin, EMPTY);
+  const destination = coerceLocalized(d.destination, EMPTY);
+  if (!hasName(origin)) return null;
+  return {
+    id: coerceString(d.id, `route-${i + 1}`),
+    origin,
+    destination,
+    transitTimeDays: coerceNumber(d.transitTimeDays, 3),
+    ratePerKgAfn: coerceNumber(d.ratePerKgAfn, 50),
+    cargoType: coerceLocalized(d.cargoType, EMPTY),
+  };
+}
+
+function coerceCommodity(raw: unknown, i: number): ExportCommodity | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const title = coerceLocalized(d.title, EMPTY);
+  if (!hasName(title)) return null;
+  return {
+    id: coerceString(d.id, `commodity-${i + 1}`),
+    title,
+    originProvince: coerceLocalized(d.originProvince, EMPTY),
+    gradeSpec: coerceLocalized(d.gradeSpec, EMPTY),
+    packagingTypes: coerceLocalized(d.packagingTypes, EMPTY),
+    minOrderQuantityKg: coerceNumber(d.minOrderQuantityKg, 1),
+  };
+}
+
+function coerceProduct(raw: unknown, i: number): CatalogProduct | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const name = coerceLocalized(d.name, coerceLocalized(d.title, EMPTY));
+  if (!hasName(name)) return null;
+  return {
+    id: coerceString(d.id, `prod-${i + 1}`),
+    name,
+    description: coerceLocalized(d.description, name),
+    priceAfn: coerceNumber(d.priceAfn, coerceNumber(d.price, coerceNumber(d.price_afn, 100))),
+    priceUsd: coerceNumber(d.priceUsd, 0),
+    category: coerceLocalized(d.category, EMPTY),
+    inStock: typeof d.inStock === 'boolean' ? d.inStock : true,
+  };
+}
+
+function coerceOffering(raw: unknown, i: number): ServiceOffering | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  const title = coerceLocalized(d.title, EMPTY);
+  if (!hasName(title)) return null;
+  return {
+    id: coerceString(d.id, `svc-${i + 1}`),
+    title,
+    description: coerceLocalized(d.description, title),
+    deliverables: coerceList(d.deliverables).map((x) => coerceLocalized(x, EMPTY)).filter(hasName),
+    priceRangeAfn: coerceString(d.priceRangeAfn, ''),
+  };
+}
+
 const THEMES = ['emerald', 'lapis', 'saffron', 'slate', 'teal', 'crimson'];
 const LAYOUTS = ['aurora', 'minimal', 'editorial'];
 
@@ -209,7 +358,7 @@ export function sanitizeSiteSchema(
   const theme = THEMES.includes(p.theme) ? (p.theme as UniversalSiteSchema['theme']) : baseline.theme;
   const layout = LAYOUTS.includes(p.layout) ? (p.layout as UniversalSiteSchema['layout']) : baseline.layout;
 
-  return {
+  const result: UniversalSiteSchema = {
     ...baseline,
     theme,
     layout,
@@ -236,6 +385,57 @@ export function sanitizeSiteSchema(
       prefilledMessage: coerceLocalized(wa.prefilledMessage, baseline.whatsappCta.prefilledMessage),
     },
   };
+
+  // Adopt LLM-provided sector content when valid; fall back to the blueprint.
+  if (baseline.clinic) {
+    const c = p.clinic && typeof p.clinic === 'object' ? p.clinic : {};
+    result.clinic = {
+      ...baseline.clinic,
+      doctors: coerceItems(c.doctors, baseline.clinic.doctors, coerceDoctor, 1),
+      diagnosticTests: coerceItems(c.diagnosticTests, baseline.clinic.diagnosticTests, coerceTest, 1),
+      emergencyContact: coerceString(c.emergencyContact, baseline.clinic.emergencyContact),
+    };
+  }
+  if (baseline.retail) {
+    const r = p.retail && typeof p.retail === 'object' ? p.retail : {};
+    result.retail = { products: coerceItems(r.products, baseline.retail.products, coerceProduct, 1) };
+  }
+  if (baseline.school) {
+    const sc = p.school && typeof p.school === 'object' ? p.school : {};
+    result.school = {
+      ...baseline.school,
+      courses: coerceItems(sc.courses, baseline.school.courses, coerceCourse, 1),
+      accreditation: coerceLocalized(sc.accreditation, baseline.school.accreditation),
+      enrollmentDeadline: coerceString(sc.enrollmentDeadline, baseline.school.enrollmentDeadline ?? ''),
+    };
+  }
+  if (baseline.logistics) {
+    const l = p.logistics && typeof p.logistics === 'object' ? p.logistics : {};
+    result.logistics = {
+      ...baseline.logistics,
+      routes: coerceItems(l.routes, baseline.logistics.routes, coerceRoute, 1),
+      fleetInfo: coerceLocalized(l.fleetInfo, baseline.logistics.fleetInfo),
+      trackingHotline: coerceString(l.trackingHotline, baseline.logistics.trackingHotline),
+    };
+  }
+  if (baseline.export) {
+    const e = p.export && typeof p.export === 'object' ? p.export : {};
+    result.export = {
+      ...baseline.export,
+      commodities: coerceItems(e.commodities, baseline.export.commodities, coerceCommodity, 1),
+      certifications: coerceStringArray(e.certifications, baseline.export.certifications),
+      packagingStandards: coerceLocalized(e.packagingStandards, baseline.export.packagingStandards),
+    };
+  }
+  if (baseline.services) {
+    const sv = p.services && typeof p.services === 'object' ? p.services : {};
+    result.services = {
+      ...baseline.services,
+      offerings: coerceItems(sv.offerings, baseline.services.offerings, coerceOffering, 1),
+    };
+  }
+
+  return result;
 }
 
 /**
@@ -251,16 +451,25 @@ export async function generateSiteSchemaFromPrompt(
   if (process.env.AWS_ACCESS_KEY_ID && process.env.BEDROCK_REGION) {
     try {
       const systemPrompt = `You are Aria Core AI, the official site generation intelligence of AriaCloud.
-Return a STRICT JSON object representing a UniversalSiteSchema for an Afghan business in the '${industry}' sector.
-Fields must include:
-- header (businessName, tagline, phone, whatsappPhone, email, address in fa, ps, and en)
-- hero (headline, subheadline, primaryCtaText, primaryCtaIntent in fa, ps, and en)
-- operatingHours (regular, thursday, friday)
-- theme ('emerald', 'lapis', 'saffron', 'slate', 'teal', 'crimson')
-- Sector-specific key: ${industry} (e.g. clinic with doctors & diagnosticTests; school with courses; logistics with routes; export with commodities; retail with products; services with offerings)
-- whatsappCta (phoneNumber, prefilledMessage in fa, ps, en)
-- pwa (name, shortName, themeColor, backgroundColor, startUrl, display: 'standalone')
-Respond with JSON only, no markdown backticks.`;
+Return a STRICT JSON object representing a UniversalSiteSchema for an Afghan business in the '${industry}' sector, based on the user's prompt. Invent a realistic, specific business (real names, real prices in AFN).
+
+Every localized field is an object { "fa": "Dari", "ps": "Pashto", "en": "English" }.
+
+Top-level fields:
+- header: { businessName, tagline, phone, whatsappPhone, email, address, city } — businessName, tagline and address are localized.
+- hero: { headline, subheadline, primaryCtaText, primaryCtaIntent } — headline, subheadline and primaryCtaText are localized; primaryCtaIntent is one of appointment|quote|enrollment|order|consultation.
+- theme: one of emerald|lapis|saffron|slate|teal|crimson.
+- whatsappCta: { phoneNumber, prefilledMessage (localized) }.
+
+Sector content — generate 3-6 REAL, specific items under the sector key '${industry}':
+- clinic: { doctors: [{ id, name, specialty, qualifications, consultationFeeAfn, availableDays: ["Sat","Sun"], appointmentSlots: ["09:00 - 12:00"] }], diagnosticTests: [{ id, name, category, priceAfn, turnaroundHours }], emergencyContact }
+- retail: { products: [{ id, name, description, priceAfn, priceUsd, category, inStock: true }] }
+- school: { courses: [{ id, title, description, durationMonths, feeAfn, instructorName, schedule }], accreditation }
+- logistics: { routes: [{ id, origin, destination, transitTimeDays, ratePerKgAfn, cargoType }], fleetInfo, trackingHotline }
+- export: { commodities: [{ id, title, originProvince, gradeSpec, packagingTypes, minOrderQuantityKg }], certifications: ["..."] }
+- services: { offerings: [{ id, title, description, deliverables: ["..."], priceRangeAfn }] }
+
+All names, titles and descriptions must be localized (fa/ps/en). Respond with JSON only, no markdown backticks.`;
 
       const cmd = new InvokeModelCommand({
         modelId: 'amazon.nova-micro-v1:0',
@@ -270,7 +479,7 @@ Respond with JSON only, no markdown backticks.`;
           messages: [
             { role: 'user', content: [{ text: `${systemPrompt}\n\nPrompt: ${prompt}` }] },
           ],
-          inferenceConfig: { maxTokens: 4000, temperature: 0.3 },
+          inferenceConfig: { maxTokens: 6000, temperature: 0.4 },
         }),
       });
 

@@ -130,5 +130,24 @@ export async function run() {
   check('sanitize: valid localized override applied', partial.header.businessName.en === 'Kabul' && partial.header.businessName.fa === 'کابل');
   check('sanitize: valid layout override applied', partial.layout === 'editorial');
 
+  // LLM sector content adoption
+  const adopted = site.sanitizeSiteSchema(
+    {
+      header: { businessName: { fa: 'کابل', ps: 'کابل', en: 'Kabul' } },
+      retail: { products: [
+        { name: 'عسل وحشی', priceAfn: 950 },
+        { name: 'زعفران', priceAfn: 5000, inStock: true },
+        { name: 'بادام', priceAfn: 800 },
+      ] },
+    },
+    site.createSectorBlueprint('retail', 'xss-clinic', '', undefined)
+  );
+  check('sanitize: LLM products adopted', adopted.retail.products.length === 3 && adopted.retail.products[0].name.en === 'عسل وحشی');
+  const malformedProducts = site.sanitizeSiteSchema(
+    { retail: { products: [{ priceAfn: 10 }] } },
+    site.createSectorBlueprint('retail', 'x', '', undefined)
+  );
+  check('sanitize: nameless products fall back to baseline', malformedProducts.retail.products.length >= 1 && malformedProducts.retail.products[0].id.startsWith('prod-'));
+
   return failures();
 }

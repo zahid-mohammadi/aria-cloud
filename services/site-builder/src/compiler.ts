@@ -74,19 +74,43 @@ function clinicSection(s: UniversalSiteSchema): string {
 function retailSection(s: UniversalSiteSchema): string {
   const r = s.retail;
   if (!r) return '';
+  const merchantId = 'HP-AF-' + s.subdomainSlug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const products = r.products
-    .map((p) => {
-      const msg = `${p.name.en} — ${p.priceAfn} AFN`;
+    .map((p, i) => {
+      const id = p.id || `prd-${i + 1}`;
       return `
-    <article class="card">
+    <article class="card product" data-id="${esc(id)}" data-price="${esc(p.priceAfn)}" data-title-fa="${esc(p.name.fa)}" data-title-ps="${esc(p.name.ps)}" data-title-en="${esc(p.name.en)}">
       <h3 class="card-title">${tr(p.name)}</h3>
       <p class="muted">${tr(p.description)}</p>
-      <div class="row between"><span class="muted">${tr(p.category)}</span><b>${AFN(p.priceAfn)}</b></div>
-      <a class="btn wa" target="_blank" rel="noopener" href="${WA(s.whatsappCta.phoneNumber, msg)}">${tr({ fa: 'سفارش', ps: 'سپارښت', en: 'Order' })}</a>
+      <div class="row between">
+        <span class="muted">${tr(p.category)}</span>
+        <b>${AFN(p.priceAfn)}</b>
+      </div>
+      <button class="btn primary" data-add="${esc(id)}">${tr({ fa: 'افزودن به سبد', ps: 'سله ته زیات کړئ', en: 'Add to cart' })}</button>
     </article>`;
     })
     .join('\n');
-  return `<section class="sector"><h2 class="section-title">${tr({ fa: 'محصولات', ps: 'محصولات', en: 'Products' })}</h2><div class="grid">${products}</div></section>`;
+
+  return `
+  <section class="sector">
+    <h2 class="section-title">${tr({ fa: 'محصولات', ps: 'محصولات', en: 'Products' })}</h2>
+    <div class="grid">${products}</div>
+  </section>
+  <div class="cart-bar">
+    <strong id="cart-summary">${tr({ fa: 'سبد خرید: ۰ قلم (0 افغانی)', ps: 'ستاسو سله: ۰ توکي (0 AFN)', en: 'Cart: 0 items (0 AFN)' })}</strong>
+    <div class="cart-actions">
+      <button class="btn hp" id="checkout-hp">💳 ${tr({ fa: 'پرداخت با HesabPay', ps: 'د HesabPay تادیه', en: 'Pay with HesabPay' })}</button>
+      <button class="btn wa" id="checkout-wa">💬 ${tr({ fa: 'سفارش از طریق واتساپ', ps: 'د واټساپ له لارې سپارښت', en: 'Order via WhatsApp' })}</button>
+    </div>
+  </div>
+  <div class="hp-panel" id="hesabpay-panel" style="display:none">
+    <div class="hp-card">
+      <h3>${tr({ fa: 'پرداخت آنی HesabPay', ps: 'د HesabPay سمدستي تادیه', en: 'HesabPay Instant Payment' })}</h3>
+      <p class="muted">${tr({ fa: 'شناسه پذیرنده', ps: 'د منونکي ID', en: 'Merchant ID' })}: <b>${esc(merchantId)}</b></p>
+      <p class="muted">${tr({ fa: 'مبلغ قابل پرداخت', ps: 'د تادیې وړ پیسې', en: 'Amount payable' })}: <b id="hp-amount"></b></p>
+      <button class="btn ghost" id="hp-close">${tr({ fa: 'بستن', ps: 'تړل', en: 'Close' })}</button>
+    </div>
+  </div>`;
 }
 
 function schoolSection(s: UniversalSiteSchema): string {
@@ -167,6 +191,66 @@ const LANG_SCRIPT = `
 })();
 `;
 
+const CART_SCRIPT = `
+(function(){
+  var body = document.body;
+  function lang(){ return body.getAttribute('data-lang') || 'fa'; }
+  function whatsapp(){ return (body.getAttribute('data-whatsapp') || '').replace(/[^0-9]/g, ''); }
+  var cart = {};
+  var products = {};
+  function collect(){
+    var els = document.querySelectorAll('.product[data-id]');
+    products = {};
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      products[el.getAttribute('data-id')] = {
+        price: Number(el.getAttribute('data-price') || 0),
+        fa: el.getAttribute('data-title-fa') || '',
+        ps: el.getAttribute('data-title-ps') || '',
+        en: el.getAttribute('data-title-en') || ''
+      };
+    }
+  }
+  function title(p){ var l = lang(); return p[l] || p.fa || ''; }
+  function summary(){
+    var count = 0, total = 0;
+    for (var id in cart) { var p = products[id]; if (p) { count += cart[id]; total += cart[id] * p.price; } }
+    return { count: count, total: total };
+  }
+  function render(){
+    var el = document.getElementById('cart-summary'); if (!el) return;
+    var s = summary(); var l = lang();
+    el.textContent = l === 'en' ? 'Cart: ' + s.count + ' items (' + s.total.toLocaleString() + ' AFN)'
+      : l === 'ps' ? 'ستاسو سله: ' + s.count + ' توکي (' + s.total.toLocaleString() + ' AFN)'
+      : 'سبد خرید: ' + s.count + ' قلم (' + s.total.toLocaleString() + ' افغانی)';
+  }
+  function add(id){ cart[id] = (cart[id] || 0) + 1; render(); }
+  function wa(){
+    var s = summary();
+    if (s.count === 0) { alert(lang() === 'en' ? 'Add a product first.' : 'لطفاً ابتدا محصولی انتخاب کنید.'); return; }
+    var NL = String.fromCharCode(10);
+    var lines = [];
+    for (var id in cart) { var p = products[id]; if (p && cart[id] > 0) { lines.push('- ' + title(p) + ' x' + cart[id] + ' = ' + (cart[id] * p.price).toLocaleString() + ' AFN'); } }
+    var msg = 'سلام! سفارش جدید:' + NL + lines.join(NL) + NL + 'مجموع کل: ' + s.total.toLocaleString() + ' AFN';
+    window.open('https://wa.me/' + whatsapp() + '?text=' + encodeURIComponent(msg), '_blank');
+  }
+  function hp(){
+    var s = summary();
+    if (s.total === 0) { alert(lang() === 'en' ? 'Add an item to pay.' : 'لطفاً محصولی انتخاب نمایید.'); return; }
+    var amt = document.getElementById('hp-amount'); if (amt) amt.textContent = s.total.toLocaleString() + ' AFN';
+    var el = document.getElementById('hesabpay-panel'); if (el) el.style.display = 'flex';
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('data-setlang')) { setTimeout(render, 0); return; }
+    if (t && t.closest) { var b = t.closest('[data-add]'); if (b) { add(b.getAttribute('data-add')); return; } }
+    if (t && t.id === 'checkout-wa') { wa(); return; }
+    if (t && t.id === 'checkout-hp') { hp(); return; }
+    if (t && t.id === 'hp-close') { var el = document.getElementById('hesabpay-panel'); if (el) el.style.display = 'none'; return; }
+  });
+  collect(); render();
+})();
+`;
 // --- shared stylesheet ------------------------------------------------------
 
 const CSS = `
@@ -230,6 +314,13 @@ h1.hero-title{font-size:clamp(28px,5vw,46px);line-height:1.15;margin:0 0 14px;le
 [data-layout="editorial"] h1.hero-title{font-family:Georgia,'Times New Roman',serif}
 [data-layout="editorial"] .section-title{font-family:Georgia,'Times New Roman',serif}
 [data-layout="editorial"] .card{border-radius:0;border-inline-start:3px solid var(--primary)}
+body.has-cart{padding-bottom:96px}
+.cart-bar{position:fixed;bottom:16px;left:16px;right:16px;z-index:50;max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--primary);border-radius:14px;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:0 10px 30px rgba(15,23,42,.18)}
+.cart-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn.hp{background:#2563eb;color:#fff}
+.hp-panel{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+.hp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:380px;width:100%}
+.hp-card h3{margin:0 0 12px}
 @media(max-width:640px){.hero{padding:40px 0}.grid{grid-template-columns:1fr}}
 `;
 
@@ -243,6 +334,8 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
     .replace(/BORDER/g, palette.border)
     .replace(/TEXT/g, palette.text)
     .replace(/MUTED/g, palette.muted);
+
+  const merchantId = 'HP-AF-' + schema.subdomainSlug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 
   const sector =
     schema.industry === 'clinic' ? clinicSection(schema)
@@ -262,7 +355,7 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
 <meta name="theme-color" content="${palette.primary}">
 <style>${css}</style>
 </head>
-<body data-layout="${schema.layout}" data-theme="${schema.theme}" data-lang="fa">
+<body data-layout="${schema.layout}" data-theme="${schema.theme}" data-lang="fa" data-whatsapp="${esc(schema.whatsappCta.phoneNumber)}" data-merchant="${esc(merchantId)}"${schema.industry === 'retail' ? ' class="has-cart"' : ''}>
 <header class="site-header"><div class="inner">
   <span class="brand"><span class="dot"></span>${tr(schema.header.businessName)}</span>
   <div class="lang-switch">
@@ -303,6 +396,7 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
 
 <footer class="site-footer">${tr({ fa: 'ساخته‌شده توسط آریا کلاود', ps: 'د آریا کلاوډ لخوا جوړ شوی', en: 'Built with AriaCloud' })}</footer>
 <script>${LANG_SCRIPT}</script>
+${schema.industry === 'retail' ? `<script>${CART_SCRIPT}</script>` : ''}
 </body>
 </html>`;
 }
