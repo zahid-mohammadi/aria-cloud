@@ -2,17 +2,13 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
-  applyMode,
-  applyDensity,
-  Mode,
-  Density,
-} from '@cloudscape-design/global-styles';
-import * as awsui from '@cloudscape-design/design-tokens';
-import {
   Language,
   TranslationDictionary,
   useTranslation,
 } from '@aria-cloud/ui';
+
+export type ThemeMode = 'dark' | 'light';
+export type ThemeDensity = 'compact' | 'comfortable';
 
 export interface CloudscapeThemeContextValue {
   language: Language;
@@ -20,13 +16,12 @@ export interface CloudscapeThemeContextValue {
   t: TranslationDictionary;
   dir: 'ltr' | 'rtl';
   isRtl: boolean;
-  mode: Mode;
+  mode: ThemeMode;
   toggleMode: () => void;
-  density: Density;
+  density: ThemeDensity;
   toggleDensity: () => void;
   activeNavHref: string;
   setActiveNavHref: (href: string) => void;
-  tokens: typeof awsui;
 }
 
 const CloudscapeThemeContext = createContext<CloudscapeThemeContextValue | null>(
@@ -39,22 +34,26 @@ export function CloudscapeThemeProvider({
   children: React.ReactNode;
 }) {
   const { language, setLanguage, t, dir, isRtl } = useTranslation();
-  const [mode, setMode] = useState<Mode>(Mode.Dark);
-  const [density, setDensity] = useState<Density>(Density.Compact);
+  const [mode, setMode] = useState<ThemeMode>('dark');
+  const [density, setDensity] = useState<ThemeDensity>('compact');
   const [activeNavHref, setActiveNavHref] = useState<string>('/dashboard');
 
   useEffect(() => {
-    applyMode(mode);
-    applyDensity(density);
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('theme-dark', 'theme-light');
+      document.documentElement.classList.add(`theme-${mode}`);
+      document.documentElement.setAttribute('data-theme', mode);
+      document.documentElement.setAttribute('data-density', density);
+    }
   }, [mode, density]);
 
   const toggleMode = () => {
-    setMode((prev) => (prev === Mode.Dark ? Mode.Light : Mode.Dark));
+    setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   const toggleDensity = () => {
     setDensity((prev) =>
-      prev === Density.Compact ? Density.Comfortable : Density.Compact
+      prev === 'compact' ? 'comfortable' : 'compact'
     );
   };
 
@@ -72,7 +71,6 @@ export function CloudscapeThemeProvider({
         toggleDensity,
         activeNavHref,
         setActiveNavHref,
-        tokens: awsui,
       }}
     >
       {children}
@@ -80,12 +78,12 @@ export function CloudscapeThemeProvider({
   );
 }
 
-export function useCloudscapeTheme(): CloudscapeThemeContextValue {
-  const ctx = useContext(CloudscapeThemeContext);
-  if (!ctx) {
+export function useCloudscapeTheme() {
+  const context = useContext(CloudscapeThemeContext);
+  if (!context) {
     throw new Error(
       'useCloudscapeTheme must be used within a CloudscapeThemeProvider'
     );
   }
-  return ctx;
+  return context;
 }

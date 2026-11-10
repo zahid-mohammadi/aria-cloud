@@ -27,14 +27,7 @@ async function headers() {
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: [
-    '@aria-cloud/ui',
-    '@cloudscape-design/components',
-    '@cloudscape-design/board-components',
-    '@cloudscape-design/component-toolkit',
-    '@cloudscape-design/design-tokens',
-    '@cloudscape-design/global-styles',
-  ],
+  transpilePackages: ['@aria-cloud/ui', '@aria-cloud/database'],
   headers,
 };
 

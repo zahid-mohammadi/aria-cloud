@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import '@cloudscape-design/global-styles/index.css';
 import './globals.css';
 import { LanguageProvider } from '@aria-cloud/ui';
 import { CloudscapeThemeProvider } from '../context/CloudscapeThemeContext';
