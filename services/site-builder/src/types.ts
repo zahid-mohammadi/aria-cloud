@@ -130,6 +130,14 @@ export interface PwaManifestMetadata {
   display: 'standalone' | 'minimal-ui' | 'browser';
 }
 
+export interface SiteCustomPage {
+  id: string;
+  slug: string;
+  title: LocalizedString;
+  content: LocalizedString;
+  showInNav?: boolean;
+}
+
 export interface UniversalSiteSchema {
   subdomainSlug: string;
   industry: IndustryType;
@@ -138,6 +146,7 @@ export interface UniversalSiteSchema {
   operatingHours: OperatingHours;
   theme: 'emerald' | 'lapis' | 'saffron' | 'slate' | 'teal' | 'crimson';
   layout: 'aurora' | 'minimal' | 'editorial';
+  pages?: SiteCustomPage[];
   // Sector-specific modules
   clinic?: {
     doctors: DoctorProfile[];

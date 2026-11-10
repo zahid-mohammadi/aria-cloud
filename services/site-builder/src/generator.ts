@@ -591,6 +591,19 @@ export function createSectorBlueprint(
     },
     theme: 'emerald',
     layout: 'aurora',
+    pages: [
+      {
+        id: 'about',
+        slug: 'about',
+        title: { fa: 'درباره ما', ps: 'زموږ په اړه', en: 'About Us' },
+        content: {
+          fa: 'ما با بیش از یک دهه تجربه، خدمات معیاری و باکیفیت را در سراسر افغانستان ارائه می‌نماییم.',
+          ps: 'موږ د یوې لسیزې څخه د ډیرې تجربې سره، په ټول افغانستان کې معیاري او باکیفیته خدمتونه وړاندې کوو.',
+          en: 'With over a decade of dedication, we provide trusted, high-standard services across Afghanistan.',
+        },
+        showInNav: true,
+      },
+    ],
     whatsappCta: {
       phoneNumber: '+93700123456',
       prefilledMessage: {

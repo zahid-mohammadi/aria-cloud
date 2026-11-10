@@ -42,6 +42,8 @@ export async function run() {
   check('page declares layout + language', html.includes('data-layout="aurora"') && html.includes('data-lang="fa"'));
   check('trilingual spans rendered', html.includes('i18n-fa') && html.includes('i18n-ps') && html.includes('i18n-en'));
   check('language switcher present', html.includes('data-setlang="fa"') && html.includes('data-setlang="en"'));
+  check('multi-page nav rendered in header', html.includes('site-nav') && html.includes('href="#page-about"'));
+  check('custom page section rendered with content', html.includes('id="page-about"') && html.includes('site-page'));
 
   // ------------------------------------------------------------ storefront page
   const blueprint = await site.generateStorefrontBlueprint({

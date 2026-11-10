@@ -273,6 +273,10 @@ a{color:inherit}
 .site-header .inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .brand{font-weight:800;font-size:18px}
 .brand .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--primary);margin-inline-end:6px}
+.site-nav{display:inline-flex;gap:16px;align-items:center}
+.site-nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:600;transition:color .15s}
+.site-nav a:hover{color:var(--text)}
+@media (max-width:768px){.site-nav{display:none}}
 .lang-switch{display:inline-flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:2px}
 .lang-switch button{border:0;background:transparent;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
 .lang-switch button.active{background:var(--primary);color:#fff}
@@ -359,6 +363,11 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
 <body data-layout="${schema.layout}" data-theme="${schema.theme}" data-lang="fa" data-whatsapp="${esc(schema.whatsappCta.phoneNumber)}" data-merchant="${esc(merchantId)}"${schema.industry === 'retail' ? ' class="has-cart"' : ''}>
 <header class="site-header"><div class="inner">
   <span class="brand"><span class="dot"></span>${tr(schema.header.businessName)}</span>
+  <nav class="site-nav">
+    <a href="#hero">${tr({ fa: 'صفحه اصلی', ps: 'اصلي پاڼه', en: 'Home' })}</a>
+    ${(schema.pages || []).filter(p => p.showInNav !== false).map(p => `<a href="#page-${esc(p.slug)}">${tr(p.title)}</a>`).join('')}
+    <a href="#contact">${tr({ fa: 'تماس', ps: 'اړیکه', en: 'Contact' })}</a>
+  </nav>
   <div class="lang-switch">
     <button data-setlang="fa" class="active">دری</button>
     <button data-setlang="ps">پښتو</button>
@@ -368,7 +377,7 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
 </div></header>
 
 <main>
-  <section class="hero">
+  <section class="hero" id="hero">
     <span class="section-badge">${tr({ fa: 'کسب‌وکار افغان', ps: 'افغان سوداګري', en: 'Afghan business' })}</span>
     <h1 class="hero-title">${tr(schema.hero.headline)}</h1>
     <p class="hero-sub">${tr(schema.hero.subheadline)}</p>
@@ -384,6 +393,17 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
   </section>
 
   ${sector}
+
+  ${(schema.pages || []).map(p => `
+  <section class="sector site-page" id="page-${esc(p.slug)}">
+    <h2 class="section-title">${tr(p.title)}</h2>
+    <div class="panel">
+      <div style="font-size:15px;line-height:1.8;">
+        ${tr(p.content)}
+      </div>
+    </div>
+  </section>
+  `).join('')}
 
   <section class="sector" id="contact">
     <h2 class="section-title">${tr({ fa: 'تماس با ما', ps: 'موږ سره اړیکه', en: 'Contact us' })}</h2>
