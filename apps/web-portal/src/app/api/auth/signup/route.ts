@@ -9,7 +9,7 @@ import {
   screenParty,
 } from '@aria-cloud/auth';
 import { SESSION_COOKIE } from '@aria-cloud/auth/constants';
-import { normalizeLocale, pool, withTenantContext } from '@aria-cloud/database';
+import { ARIA_PLAN_CATALOG, getPlanConfig, normalizeLocale, pool, withTenantContext } from '@aria-cloud/database';
 
 export const runtime = 'nodejs';
 
@@ -63,6 +63,8 @@ export async function POST(req: NextRequest) {
   const password = typeof body?.password === 'string' ? body.password : '';
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : null;
   const locale = normalizeLocale(body?.locale);
+  const requestedPlan = typeof body?.planTier === 'string' ? body.planTier.trim() : 'starter_af';
+  const plan = requestedPlan in ARIA_PLAN_CATALOG ? getPlanConfig(requestedPlan) : getPlanConfig('starter_af');
 
   if (!businessName) {
     return NextResponse.json({ error: 'Business name is required.' }, { status: 400 });
@@ -116,11 +118,11 @@ export async function POST(req: NextRequest) {
     await pool.query(
       `INSERT INTO tenants
          (id, business_name, subdomain, owner_phone, preferred_locale, plan_tier, account_status, ofac_screening_status, ofac_screened_at)
-       VALUES ($1, $2, $3, $4, $5, 'starter_af', 'active', $6, now())`,
-      [tenantId, businessName, subdomain, phone, locale, screening.status]
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, now())`,
+      [tenantId, businessName, subdomain, phone, locale, plan.id, screening.status]
     );
 
-    // Initialize tenant wallets inside tenant RLS context
+    // Initialize tenant wallets and initial plan invoice (if paid) inside tenant RLS context
     await withTenantContext(tenantId, async (client) => {
       await client.query(
         `INSERT INTO wallets (tenant_id, afn_balance_pul, usd_balance_cents)
@@ -130,10 +132,18 @@ export async function POST(req: NextRequest) {
       );
       await client.query(
         `INSERT INTO ai_credit_wallets (tenant_id, credit_balance, monthly_credit_quota)
-         VALUES ($1, 25000, 25000)
+         VALUES ($1, $2, $2)
          ON CONFLICT (tenant_id) DO NOTHING`,
-        [tenantId]
+        [tenantId, plan.monthlyCredits]
       );
+      if (plan.monthlyPriceAfn > 0) {
+        const invNum = `INV-${new Date().getUTCFullYear()}-${tenantId.slice(0, 6).toUpperCase()}`;
+        await client.query(
+          `INSERT INTO invoices (tenant_id, invoice_number, amount_afn, billing_period_months, status, due_date)
+           VALUES ($1, $2, $3, 1, 'unpaid', (CURRENT_DATE + INTERVAL '14 days')::date)`,
+          [tenantId, invNum, plan.monthlyPriceAfn]
+        );
+      }
     });
 
     // 4. Create owner user account & credentials
@@ -154,6 +164,7 @@ export async function POST(req: NextRequest) {
       userAgent: req.headers.get('user-agent'),
     });
 
+    const redirectTarget = plan.category === 'consumer' ? '/ai-studio' : '/dashboard';
     const response = NextResponse.json({
       ok: true,
       user: {
@@ -161,8 +172,9 @@ export async function POST(req: NextRequest) {
         fullName,
         tenantId,
         subdomain,
+        planTier: plan.id,
       },
-      redirect: '/dashboard',
+      redirect: redirectTarget,
     });
 
     response.cookies.set(SESSION_COOKIE, token, {

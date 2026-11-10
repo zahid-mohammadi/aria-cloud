@@ -10,26 +10,89 @@ interface PricingMatrixProps {
 
 interface DisplayPlan {
   id: string;
+  tierKey: string;
   name: string;
   desc: string;
   priceLabel: string;
+  periodLabel: string;
+  subLabel?: string;
   featured: boolean;
   features: string[];
 }
 
 export function PricingMatrix({ t }: PricingMatrixProps) {
-  const [activeTab, setActiveTab] = useState<'business' | 'consumer'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'consumer'>('consumer');
 
   const businessCards: DisplayPlan[] = [
-    { id: 'starter', name: t.pricing.plans.starter.name, desc: t.pricing.plans.starter.desc, priceLabel: t.pricing.perYear ? 'Contact us' : '', featured: false, features: t.pricing.plans.starter.features },
-    { id: 'professional', name: t.pricing.plans.professional.name, desc: t.pricing.plans.professional.desc, priceLabel: 'Contact us', featured: true, features: t.pricing.plans.professional.features },
-    { id: 'intelligence', name: t.pricing.plans.intelligence.name, desc: t.pricing.plans.intelligence.desc, priceLabel: 'Contact us', featured: false, features: t.pricing.plans.intelligence.features },
+    {
+      id: 'starter',
+      tierKey: 'starter_af',
+      name: t.pricing.plans.starter.name,
+      desc: t.pricing.plans.starter.desc,
+      priceLabel: '420 AFN',
+      periodLabel: t.pricing.perMonth,
+      subLabel: '~$6.45 · 4,200 AFN' + t.pricing.perYear,
+      featured: false,
+      features: t.pricing.plans.starter.features,
+    },
+    {
+      id: 'professional',
+      tierKey: 'business_pro',
+      name: t.pricing.plans.professional.name,
+      desc: t.pricing.plans.professional.desc,
+      priceLabel: '1,100 AFN',
+      periodLabel: t.pricing.perMonth,
+      subLabel: '~$16.90 · 11,000 AFN' + t.pricing.perYear,
+      featured: true,
+      features: t.pricing.plans.professional.features,
+    },
+    {
+      id: 'intelligence',
+      tierKey: 'agency_af',
+      name: t.pricing.plans.intelligence.name,
+      desc: t.pricing.plans.intelligence.desc,
+      priceLabel: '2,500 AFN',
+      periodLabel: t.pricing.perMonth,
+      subLabel: '~$38.50 · 25,000 AFN' + t.pricing.perYear,
+      featured: false,
+      features: t.pricing.plans.intelligence.features,
+    },
   ];
 
   const consumerCards: DisplayPlan[] = [
-    { id: 'community', name: t.pricing.plans.community.name, desc: t.pricing.plans.community.desc, priceLabel: 'Free', featured: false, features: t.pricing.plans.community.features },
-    { id: 'student', name: t.pricing.plans.student.name, desc: t.pricing.plans.student.desc, priceLabel: 'Contact us', featured: true, features: t.pricing.plans.student.features },
-    { id: 'creator', name: t.pricing.plans.creator.name, desc: t.pricing.plans.creator.desc, priceLabel: 'Contact us', featured: false, features: t.pricing.plans.creator.features },
+    {
+      id: 'community',
+      tierKey: 'free',
+      name: t.pricing.plans.community.name,
+      desc: t.pricing.plans.community.desc,
+      priceLabel: '0 AFN',
+      periodLabel: t.pricing.perMonth,
+      subLabel: '$0 · Chat Only',
+      featured: false,
+      features: t.pricing.plans.community.features,
+    },
+    {
+      id: 'student',
+      tierKey: 'student_af',
+      name: t.pricing.plans.student.name,
+      desc: t.pricing.plans.student.desc,
+      priceLabel: '120 AFN',
+      periodLabel: t.pricing.perMonth,
+      subLabel: `~$1.85 · ${t.pricing.plans.student.annualAlt}`,
+      featured: true,
+      features: t.pricing.plans.student.features,
+    },
+    {
+      id: 'creator',
+      tierKey: 'creator_af',
+      name: t.pricing.plans.creator.name,
+      desc: t.pricing.plans.creator.desc,
+      priceLabel: '350 AFN',
+      periodLabel: t.pricing.perMonth,
+      subLabel: '~$5.40 · 3,500 AFN' + t.pricing.perYear,
+      featured: false,
+      features: t.pricing.plans.creator.features,
+    },
   ];
 
   const activePlans = activeTab === 'business' ? businessCards : consumerCards;
@@ -52,20 +115,20 @@ export function PricingMatrix({ t }: PricingMatrixProps) {
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === 'business'}
-              onClick={() => setActiveTab('business')}
-              className={`pricing-tab-btn ${activeTab === 'business' ? 'active' : ''}`}
-            >
-              {t.pricing.tabBusiness}
-            </button>
-            <button
-              type="button"
-              role="tab"
               aria-selected={activeTab === 'consumer'}
               onClick={() => setActiveTab('consumer')}
               className={`pricing-tab-btn ${activeTab === 'consumer' ? 'active' : ''}`}
             >
               {t.pricing.tabConsumer}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'business'}
+              onClick={() => setActiveTab('business')}
+              className={`pricing-tab-btn ${activeTab === 'business' ? 'active' : ''}`}
+            >
+              {t.pricing.tabBusiness}
             </button>
           </div>
         </div>
@@ -86,8 +149,11 @@ export function PricingMatrix({ t }: PricingMatrixProps) {
 
               <div className="price-row">
                 <span className="price-val">{plan.priceLabel}</span>
+                <span className="price-period">{plan.periodLabel}</span>
               </div>
-              <div style={{ height: '1.25rem', marginBottom: '1.5rem' }} />
+              <div className="price-period" style={{ marginBottom: '1.25rem', minHeight: '1.25rem' }}>
+                {plan.subLabel}
+              </div>
 
               <hr className="plan-divider" />
 
@@ -114,7 +180,7 @@ export function PricingMatrix({ t }: PricingMatrixProps) {
               </ul>
 
               <Link
-                href="/login"
+                href={`/signup?plan=${plan.tierKey}`}
                 className={plan.featured ? 'btn-enterprise-primary' : 'btn-enterprise-secondary'}
                 style={{ width: '100%', textAlign: 'center' }}
               >

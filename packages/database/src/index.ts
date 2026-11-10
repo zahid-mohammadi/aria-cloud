@@ -227,10 +227,44 @@ export async function queryTenant<R extends QueryResultRow = any>(
   return withTenantContext(tenantId, (client) => client.query<R>(sql, params));
 }
 
+export type AriaPlanTier =
+  | 'free'
+  | 'student_af'
+  | 'creator_af'
+  | 'starter_af'
+  | 'pro_studio'
+  | 'business_pro'
+  | 'agency_af'
+  | 'enterprise';
+
+export interface AriaPlanConfig {
+  id: AriaPlanTier;
+  category: 'consumer' | 'business';
+  monthlyPriceAfn: number;
+  annualPriceAfn: number;
+  monthlyCredits: number;
+}
+
+export const ARIA_PLAN_CATALOG: Record<string, AriaPlanConfig> = {
+  free: { id: 'free', category: 'consumer', monthlyPriceAfn: 0, annualPriceAfn: 0, monthlyCredits: 1000 },
+  student_af: { id: 'student_af', category: 'consumer', monthlyPriceAfn: 120, annualPriceAfn: 1200, monthlyCredits: 8000 },
+  creator_af: { id: 'creator_af', category: 'consumer', monthlyPriceAfn: 350, annualPriceAfn: 3500, monthlyCredits: 25000 },
+  starter_af: { id: 'starter_af', category: 'business', monthlyPriceAfn: 420, annualPriceAfn: 4200, monthlyCredits: 15000 },
+  business_pro: { id: 'business_pro', category: 'business', monthlyPriceAfn: 1100, annualPriceAfn: 11000, monthlyCredits: 45000 },
+  agency_af: { id: 'agency_af', category: 'business', monthlyPriceAfn: 2500, annualPriceAfn: 25000, monthlyCredits: 100000 },
+};
+
+export function getPlanConfig(tier?: string | null): AriaPlanConfig {
+  if (tier && tier in ARIA_PLAN_CATALOG) {
+    return ARIA_PLAN_CATALOG[tier];
+  }
+  return ARIA_PLAN_CATALOG.starter_af;
+}
+
 export interface TenantOverview {
   tenantId: string;
   organizationName: string;
-  subscriptionTier: 'free' | 'starter_af' | 'pro_studio' | 'business_pro' | 'agency_af' | 'enterprise';
+  subscriptionTier: AriaPlanTier;
   usdBalanceCents: number;
   afnBalancePul: number;
   aiCreditBalance: number;

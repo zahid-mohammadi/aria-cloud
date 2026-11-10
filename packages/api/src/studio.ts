@@ -6,6 +6,23 @@ const bedrock = new BedrockRuntimeClient({
   region: process.env.BEDROCK_REGION || 'us-east-1',
 });
 
+/** Verifies the tenant is not on the chat-only free tier before running media workloads. */
+async function assertPaidMediaTier(tenantId: string): Promise<void> {
+  await withTenantContext(tenantId, async (client) => {
+    const res = await client.query<{ plan_tier: string }>(
+      `SELECT plan_tier FROM tenants WHERE id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    if (res.rows[0]?.plan_tier === 'free') {
+      throw new ApiError(
+        403,
+        'PLAN_UPGRADE_REQUIRED',
+        'Voice and image generation require Aria AI Student (120 AFN/mo) or higher.'
+      );
+    }
+  });
+}
+
 /** Ensures the tenant wallet row exists, then deducts if funds allow. */
 async function deductCredits(
   tenantId: string,
@@ -91,7 +108,10 @@ export async function generateVoice(tenantId: string, input: VoiceInput): Promis
   }
 
   const charCount = text.length;
-  const creditCost = modelId === 'eleven_flash_v2_5' ? Math.max(1, Math.ceil(charCount * 0.5)) : charCount;
+  const creditCost =
+    modelId === 'eleven_flash_v2_5'
+      ? Math.max(1, Math.ceil(charCount * 1.5))
+      : Math.max(1, charCount * 2);
   const startTime = Date.now();
 
   if (!process.env.DATABASE_URL || !apiKey) {
@@ -104,6 +124,8 @@ export async function generateVoice(tenantId: string, input: VoiceInput): Promis
       voiceId,
     };
   }
+
+  await assertPaidMediaTier(tenantId);
 
   const remainingCredits = await deductCredits(
     tenantId,
@@ -173,7 +195,7 @@ export async function generateImage(tenantId: string, input: ImageInput): Promis
     throw new ApiError(400, 'PROMPT_REQUIRED', 'Prompt must be at least 3 characters long.');
   }
 
-  const creditCost = quality === 'premium' ? 350 : 200;
+  const creditCost = quality === 'premium' ? 600 : 400;
   const startTime = Date.now();
 
   if (!process.env.DATABASE_URL || !process.env.AWS_ACCESS_KEY_ID) {
@@ -187,6 +209,8 @@ export async function generateImage(tenantId: string, input: ImageInput): Promis
       quality,
     };
   }
+
+  await assertPaidMediaTier(tenantId);
 
   const remainingCredits = await deductCredits(
     tenantId,
@@ -323,7 +347,7 @@ export async function chatAssistant(tenantId: string, input: AssistantInput): Pr
     try {
       const audioBuffer = await synthesizeSpeech(replyText);
       audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString('base64')}`;
-      ttsCredits = Math.ceil(replyText.length * 0.5);
+      ttsCredits = Math.ceil(replyText.length * 1.5);
     } catch (err) {
       console.warn('[assistant] voice reply synthesis failed:', err);
       ttsCredits = 0;

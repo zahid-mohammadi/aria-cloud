@@ -1,11 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+const PLAN_OPTIONS = [
+  { id: 'free', label: 'Community Free — 0 AFN/mo (1,000 AI credits · Chat)' },
+  { id: 'student_af', label: 'Aria AI Student (محصلین) — 120 AFN/mo (8,000 AI credits)' },
+  { id: 'creator_af', label: 'Aria AI Personal Plus — 350 AFN/mo (25,000 AI credits · Voice & Images)' },
+  { id: 'starter_af', label: 'Starter Business — 420 AFN/mo (15,000 credits + PWA + 1 Mailbox)' },
+  { id: 'business_pro', label: 'Business Pro — 1,100 AFN/mo (45,000 credits + Custom Domain + 5 Mailboxes)' },
+  { id: 'agency_af', label: 'School / NGO / Org — 2,500 AFN/mo (100,000 credits + 25 Mailboxes)' },
+];
+
 export default function SignupPage() {
   const router = useRouter();
+  const [planTier, setPlanTier] = useState('starter_af');
   const [businessName, setBusinessName] = useState('');
   const [subdomain, setSubdomain] = useState('');
   const [fullName, setFullName] = useState('');
@@ -15,6 +25,13 @@ export default function SignupPage() {
   const [locale, setLocale] = useState<'fa' | 'ps' | 'en'>('fa');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('plan');
+    if (q && PLAN_OPTIONS.some((p) => p.id === q)) {
+      setPlanTier(q);
+    }
+  }, []);
 
   function onBusinessNameChange(val: string) {
     setBusinessName(val);
@@ -45,6 +62,7 @@ export default function SignupPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          planTier,
           businessName,
           subdomain,
           fullName,
@@ -63,7 +81,7 @@ export default function SignupPage() {
         return;
       }
 
-      router.replace('/dashboard');
+      router.replace(data.redirect || '/dashboard');
       router.refresh();
     } catch {
       setError('ارتباط با سرور برقرار نشد. / Could not reach the server.');
@@ -84,7 +102,33 @@ export default function SignupPage() {
 
         <form onSubmit={onSubmit} noValidate>
           <div className="form-group">
-            <label htmlFor="businessName">نام کسب‌وکار / Business Name</label>
+            <label htmlFor="planTier">انتخاب پلن / Plan Selection</label>
+            <select
+              id="planTier"
+              value={planTier}
+              onChange={(e) => setPlanTier(e.target.value)}
+              disabled={busy}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                background: '#050c0a',
+                border: '1px solid #223f35',
+                color: '#f8fafc',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                fontSize: '14px',
+              }}
+            >
+              {PLAN_OPTIONS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="businessName">نام کسب‌وکار یا نام شخصی / Business or Personal Name</label>
             <input
               id="businessName"
               type="text"
