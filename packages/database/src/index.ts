@@ -91,6 +91,29 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+export type CanonicalLocale = 'fa' | 'ps' | 'en';
+
+/**
+ * Normalizes input language tags ('fa', 'da', 'ps_AF', 'fa-AF', etc.)
+ * into standard canonical ISO language codes: 'fa' (Dari/Persian), 'ps' (Pashto), 'en' (English).
+ */
+export function normalizeLocale(input?: string | null): CanonicalLocale {
+  if (!input) return 'fa';
+  const clean = input.trim().toLowerCase().replace(/[-_]/g, '');
+  if (clean.startsWith('ps') || clean === 'pashto') return 'ps';
+  if (clean.startsWith('en') || clean === 'english') return 'en';
+  if (
+    clean.startsWith('fa') ||
+    clean.startsWith('da') ||
+    clean === 'farsi' ||
+    clean === 'dari' ||
+    clean === 'prs'
+  ) {
+    return 'fa';
+  }
+  return 'fa';
+}
+
 /**
  * Fixed-window rate limit backed by PostgreSQL, so it holds across every
  * process / Lambda instance (unlike an in-memory Map).
@@ -241,6 +264,143 @@ export interface CustomAppDeploymentRow {
   allocated_memory_gb: number;
   allocated_vcpu: number;
   created_at: string;
+}
+
+// --- Async Job Queue ---------------------------------------------------------
+
+export interface JobRow {
+  id: string;
+  tenant_id: string;
+  job_type: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  payload: Record<string, any>;
+  result?: Record<string, any> | null;
+  error_message?: string | null;
+  attempts: number;
+  max_attempts: number;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+/** Enqueues a background job inside the tenant's RLS context. */
+export async function enqueueJob(
+  tenantId: string,
+  jobType: string,
+  payload: Record<string, any>,
+  maxAttempts = 3
+): Promise<{ id: string }> {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query<{ id: string }>(
+      `INSERT INTO job_queue (tenant_id, job_type, payload, max_attempts)
+       VALUES ($1, $2, $3::jsonb, $4)
+       RETURNING id`,
+      [tenantId, jobType, JSON.stringify(payload), maxAttempts]
+    );
+    return { id: res.rows[0].id };
+  });
+}
+
+/**
+ * Worker helper: atomically locks and claims the next available pending job
+ * (using FOR UPDATE SKIP LOCKED). Runs outside tenant context (as worker/admin)
+ * or with appropriate permissions.
+ */
+export async function claimNextJob(
+  workerId: string,
+  allowedTypes: string[] = []
+): Promise<JobRow | null> {
+  const admin = getAdminPool();
+  const typeFilter =
+    allowedTypes.length > 0
+      ? `AND job_type = ANY($2::text[])`
+      : '';
+  const params: any[] = [workerId];
+  if (allowedTypes.length > 0) params.push(allowedTypes);
+
+  // Reap stale jobs stuck in processing for > 10 minutes
+  await admin.query(
+    `UPDATE job_queue
+        SET status = 'pending', locked_at = NULL, locked_by = NULL
+      WHERE status = 'processing'
+        AND locked_at < now() - interval '10 minutes'
+        AND attempts < max_attempts`
+  ).catch(() => {});
+
+  const res = await admin.query<JobRow>(
+    `UPDATE job_queue
+        SET status = 'processing',
+            locked_at = now(),
+            locked_by = $1,
+            attempts = attempts + 1,
+            updated_at = now()
+      WHERE id = (
+        SELECT id FROM job_queue
+         WHERE status = 'pending'
+           ${typeFilter}
+         ORDER BY created_at ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1
+      )
+      RETURNING id, tenant_id, job_type, status, payload, result, error_message, attempts, max_attempts, created_at, updated_at, completed_at`,
+    params
+  );
+  return res.rows[0] ?? null;
+}
+
+/** Marks a claimed job as completed with results. */
+export async function completeJob(
+  jobId: string,
+  result: Record<string, any>
+): Promise<void> {
+  const admin = getAdminPool();
+  await admin.query(
+    `UPDATE job_queue
+        SET status = 'completed',
+            result = $1::jsonb,
+            completed_at = now(),
+            updated_at = now(),
+            locked_at = NULL,
+            locked_by = NULL
+      WHERE id = $2`,
+    [JSON.stringify(result), jobId]
+  );
+}
+
+/** Marks a claimed job as failed (or re-queues if attempts < max_attempts). */
+export async function failJob(
+  jobId: string,
+  errorMessage: string
+): Promise<void> {
+  const admin = getAdminPool();
+  await admin.query(
+    `UPDATE job_queue
+        SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,
+            error_message = $1,
+            updated_at = now(),
+            locked_at = NULL,
+            locked_by = NULL
+      WHERE id = $2`,
+    [errorMessage, jobId]
+  );
+}
+
+/** Fetches status of a specific job within tenant context. */
+export async function getJobStatus(
+  tenantId: string,
+  jobId: string
+): Promise<JobRow | null> {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query<JobRow>(
+      `SELECT id, tenant_id, job_type, status, payload, result, error_message,
+              attempts, max_attempts, created_at, updated_at, completed_at
+         FROM job_queue
+        WHERE id = $1 AND tenant_id = $2
+        LIMIT 1`,
+      [jobId, tenantId]
+    );
+    return res.rows[0] ?? null;
+  });
 }
 
 /**

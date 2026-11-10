@@ -1,6 +1,29 @@
 // packages/ui/src/i18n/translations.ts
 
-export type Language = "en" | "da" | "ps";
+export type CanonicalLocale = 'fa' | 'ps' | 'en';
+export type Language = 'en' | 'da' | 'fa' | 'ps';
+
+/**
+ * Normalizes language codes across the database ('fa', 'da', 'ps_AF'),
+ * Meta WhatsApp Cloud API ('fa-AF', 'ps-AF'), and browser headers into
+ * the canonical trilingual codes: 'fa' (Dari/Persian), 'ps' (Pashto), 'en' (English).
+ */
+export function normalizeLocale(input?: string | null): CanonicalLocale {
+  if (!input) return 'fa';
+  const clean = input.trim().toLowerCase().replace(/[-_]/g, '');
+  if (clean.startsWith('ps') || clean === 'pashto') return 'ps';
+  if (clean.startsWith('en') || clean === 'english') return 'en';
+  if (
+    clean.startsWith('fa') ||
+    clean.startsWith('da') ||
+    clean === 'farsi' ||
+    clean === 'dari' ||
+    clean === 'prs'
+  ) {
+    return 'fa';
+  }
+  return 'fa';
+}
 
 export interface TranslationDictionary {
   dir: "ltr" | "rtl";
@@ -347,6 +370,9 @@ export const translations: Record<Language, TranslationDictionary> = {
       cancel: "انصراف",
       ms: "میلی‌ثانیه",
     },
+  },
+  get fa() {
+    return this.da;
   },
 
   ps: {

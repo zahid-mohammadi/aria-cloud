@@ -147,5 +147,36 @@ export async function run() {
   auth.resetScreeningCache();
   await fs.unlink(listPath);
 
+  // --- async job queue -----------------------------------------------------
+  const { id: jobId } = await database.enqueueJob(
+    tenantId,
+    'site.deploy',
+    { slug: 'kabul-clinic', version: 1 },
+    3
+  );
+  check('enqueueJob creates a pending job', !!jobId);
+
+  const initialStatus = await database.getJobStatus(tenantId, jobId);
+  check('getJobStatus returns pending status', initialStatus?.status === 'pending' && initialStatus?.job_type === 'site.deploy');
+
+  const claimed = await database.claimNextJob('worker-1', ['site.deploy']);
+  check('claimNextJob claims the pending job', claimed?.id === jobId && claimed?.status === 'processing' && claimed?.attempts === 1);
+
+  await database.completeJob(jobId, { deployedUrl: 'https://kabul-clinic.ariacloudservices.org' });
+  const completedStatus = await database.getJobStatus(tenantId, jobId);
+  check('completeJob sets status to completed with result', completedStatus?.status === 'completed' && completedStatus?.result?.deployedUrl?.includes('kabul-clinic'));
+
+  // Retry behavior on failure
+  const { id: failJobId } = await database.enqueueJob(
+    tenantId,
+    'email.bulk',
+    { count: 50 },
+    2
+  );
+  const failClaim = await database.claimNextJob('worker-1', ['email.bulk']);
+  await database.failJob(failClaim.id, 'SMTP timeout');
+  const retriedStatus = await database.getJobStatus(tenantId, failJobId);
+  check('failJob with retry resets status to pending', retriedStatus?.status === 'pending' && retriedStatus?.attempts === 1 && retriedStatus?.error_message === 'SMTP timeout');
+
   return failures();
 }

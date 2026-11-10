@@ -16,7 +16,7 @@
  */
 import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { pool, withTenantContext } from '@aria-cloud/database';
+import { normalizeLocale, pool, withTenantContext } from '@aria-cloud/database';
 
 export interface LambdaEvent {
   rawPath?: string;
@@ -385,7 +385,7 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
         await sendWhatsAppTemplate(
           result.contact.owner_phone,
           'aria_payment_receipt',
-          result.contact.preferred_locale,
+          normalizeLocale(result.contact.preferred_locale),
           [String(amount_afn), 'HesabPay', transaction_id]
         );
       }

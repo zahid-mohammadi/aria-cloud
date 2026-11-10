@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Language, translations, TranslationDictionary } from "./translations";
+import { Language, translations, TranslationDictionary, normalizeLocale } from "./translations";
 
 export interface LanguageContextType {
   language: Language;
@@ -13,9 +13,9 @@ export interface LanguageContextType {
 }
 
 const defaultContextValue: LanguageContextType = {
-  language: "da",
+  language: "fa",
   setLanguage: () => {},
-  t: translations["da"],
+  t: translations["fa"],
   dir: "rtl",
   isRtl: true,
 };
@@ -23,23 +23,24 @@ const defaultContextValue: LanguageContextType = {
 const LanguageContext = createContext<LanguageContextType>(defaultContextValue);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("da"); // Default to Afghan Dari
+  const [language, setLanguageState] = useState<Language>("fa"); // Default to Afghan Dari
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("ariacloud_lang") as Language;
-    if (saved && (saved === "en" || saved === "da" || saved === "ps")) {
-      setLanguageState(saved);
+    const saved = localStorage.getItem("ariacloud_lang");
+    if (saved) {
+      setLanguageState(normalizeLocale(saved));
     }
     setMounted(true);
   }, []);
 
   const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
-    localStorage.setItem("ariacloud_lang", lang);
+    const normalized = normalizeLocale(lang);
+    setLanguageState(normalized);
+    localStorage.setItem("ariacloud_lang", normalized);
   };
 
-  const t = translations[language];
+  const t = translations[language] || translations["fa"];
   const dir = t.dir;
   const isRtl = dir === "rtl";
 
