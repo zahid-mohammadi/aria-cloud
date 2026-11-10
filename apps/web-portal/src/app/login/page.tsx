@@ -96,9 +96,7 @@ export default function LoginPage() {
         </p>
 
         <p className="footnote">
-          حساب ندارید؟ با تیم آریا کلاود در واتساپ تماس بگیرید.
-          <br />
-          Need an account? Contact AriaCloud support.
+          حساب ندارید؟ <a href="/signup" style={{ color: '#34d399', fontWeight: 600 }}>افتتاح حساب آنلاین / Create Account</a>
         </p>
       </div>
 
