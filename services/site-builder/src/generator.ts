@@ -25,6 +25,7 @@ import {
   ExportCommodity,
   CatalogProduct,
   ServiceOffering,
+  SiteCustomPage,
 } from './types';
 import { compileUniversalSiteHtml } from './compiler';
 import { claimSlug } from './ownership';
@@ -46,9 +47,25 @@ export interface GenerateUniversalSiteInput {
   prompt: string;
   customDomain?: string;
   publishToS3?: boolean;
+  businessName?: string;
+  whatsappPhone?: string;
+  hesabPayId?: string;
+  pages?: SiteCustomPage[];
   /** Override the generated design (defaults to the sector blueprint's). */
   layout?: UniversalSiteSchema['layout'];
   theme?: UniversalSiteSchema['theme'];
+}
+
+export interface TenantSiteSummary {
+  deploymentId: string;
+  industry: IndustryType;
+  subdomainSlug: string;
+  liveUrl: string;
+  edgeObjectKey: string;
+  currentVersion: number;
+  lastUpdatedAt: string;
+  businessName?: LocalizedString;
+  pages?: SiteCustomPage[];
 }
 
 export interface GenerateUniversalSiteResult {
@@ -83,9 +100,40 @@ export async function generateUniversalSite(
     input.customDomain
   );
 
-  // Allow an explicit design choice to override the generated/blueprint default.
+  // Allow explicit overrides from the Store Builder UI / caller.
   if (input.layout) schema.layout = input.layout;
   if (input.theme) schema.theme = input.theme;
+  if (input.businessName?.trim()) {
+    const bn = input.businessName.trim();
+    schema.header.businessName = { fa: bn, ps: bn, en: bn };
+    schema.pwa.name = bn;
+    schema.pwa.shortName = bn.slice(0, 18);
+  }
+  if (input.whatsappPhone?.trim()) {
+    const phone = input.whatsappPhone.trim();
+    schema.whatsappCta.phoneNumber = phone;
+    schema.header.phone = phone;
+  }
+  if (input.hesabPayId?.trim()) {
+    schema.hesabPayMerchantId = input.hesabPayId.trim();
+  }
+  if (Array.isArray(input.pages)) {
+    schema.pages = input.pages
+      .filter((p) => p && typeof p.slug === 'string' && p.slug.trim())
+      .map((p, idx) => {
+        const cleanPageSlug = p.slug
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, '-')
+          .replace(/^-+|-+$/g, '') || `page-${idx + 1}`;
+        return {
+          id: p.id || cleanPageSlug,
+          slug: cleanPageSlug,
+          title: coerceLocalized(p.title, { fa: cleanPageSlug, ps: cleanPageSlug, en: cleanPageSlug }),
+          content: coerceLocalized(p.content, { fa: '', ps: '', en: '' }),
+          showInNav: p.showInNav !== false,
+        };
+      });
+  }
 
   // Step 2: Claim the subdomain, then compile. The S3 key must match the
   // CloudFront function's /tenants/<subdomain>/... rewrite, otherwise the
@@ -131,12 +179,45 @@ export async function generateUniversalSite(
     }
   }
 
-  // Step 4: Record the site schema in `tenant_sites` under strict RLS context
+  // Step 4: Record or update the site schema in `tenant_sites` under strict RLS context
   const liveUrl = schema.customDomain
     ? `https://${schema.customDomain}`
     : `https://${cleanSlug}.${ROOT_DOMAIN}`;
 
-  const siteId = await withTenantContext(input.tenantId, async (client) => {
+  const saved = await withTenantContext(input.tenantId, async (client) => {
+    const existing = await client.query<{ id: string }>(
+      `SELECT id FROM tenant_sites
+        WHERE tenant_id = $1 AND site_schema->>'subdomainSlug' = $2
+        LIMIT 1`,
+      [input.tenantId, cleanSlug]
+    );
+
+    if (existing.rows[0]?.id) {
+      const updated = await client.query<{ id: string; current_version: number }>(
+        `UPDATE tenant_sites
+            SET industry_type = $1,
+                site_schema = $2,
+                current_version = current_version + 1,
+                s3_path = $3,
+                custom_domain = $4,
+                is_live = true,
+                last_updated_at = CURRENT_TIMESTAMP
+          WHERE id = $5
+          RETURNING id, current_version`,
+        [
+          input.industry,
+          JSON.stringify(schema),
+          s3Path,
+          input.customDomain || null,
+          existing.rows[0].id,
+        ]
+      );
+      return {
+        siteId: updated.rows[0]?.id || existing.rows[0].id,
+        currentVersion: Number(updated.rows[0]?.current_version || 1),
+      };
+    }
+
     const res = await client.query<{ id: string; current_version: number }>(
       `INSERT INTO tenant_sites (
         tenant_id,
@@ -147,10 +228,6 @@ export async function generateUniversalSite(
         custom_domain,
         is_live
       ) VALUES ($1, $2, $3, 1, $4, $5, true)
-      ON CONFLICT (id) DO UPDATE SET
-        site_schema = EXCLUDED.site_schema,
-        current_version = tenant_sites.current_version + 1,
-        last_updated_at = CURRENT_TIMESTAMP
       RETURNING id, current_version`,
       [
         input.tenantId,
@@ -161,21 +238,64 @@ export async function generateUniversalSite(
       ]
     );
 
-    return res.rows[0]?.id || `site_${Date.now().toString(36)}`;
+    return {
+      siteId: res.rows[0]?.id || `site_${Date.now().toString(36)}`,
+      currentVersion: Number(res.rows[0]?.current_version || 1),
+    };
   });
 
   return {
-    siteId,
+    siteId: saved.siteId,
     tenantId: input.tenantId,
     industry: input.industry,
     subdomainSlug: cleanSlug,
     liveUrl,
     s3Path,
-    currentVersion: 1,
+    currentVersion: saved.currentVersion,
     schema,
     compiledHtml,
     invalidationId,
   };
+}
+
+/**
+ * Lists all deployed sites for a tenant directly from PostgreSQL (RLS-enforced).
+ */
+export async function listTenantSites(tenantId: string): Promise<TenantSiteSummary[]> {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query<{
+      id: string;
+      industry_type: IndustryType;
+      site_schema: UniversalSiteSchema;
+      current_version: number;
+      s3_path: string;
+      custom_domain: string | null;
+      last_updated_at: string;
+    }>(
+      `SELECT id, industry_type, site_schema, current_version, s3_path, custom_domain, last_updated_at
+         FROM tenant_sites
+        WHERE tenant_id = $1 AND is_live = true
+        ORDER BY last_updated_at DESC`,
+      [tenantId]
+    );
+
+    return res.rows.map((row) => {
+      const slug = row.site_schema?.subdomainSlug || 'site';
+      const domain = row.custom_domain || `${slug}.${ROOT_DOMAIN}`;
+      const edgeObjectKey = row.s3_path?.replace(/^s3:\/\/[^/]+\//, '') || `tenants/${slug}/index.html`;
+      return {
+        deploymentId: row.id,
+        industry: row.industry_type,
+        subdomainSlug: slug,
+        liveUrl: `https://${domain}`,
+        edgeObjectKey,
+        currentVersion: Number(row.current_version || 1),
+        lastUpdatedAt: row.last_updated_at,
+        businessName: row.site_schema?.header?.businessName,
+        pages: row.site_schema?.pages || [],
+      };
+    });
+  });
 }
 
 function coerceLocalized(value: unknown, fallback: LocalizedString): LocalizedString {

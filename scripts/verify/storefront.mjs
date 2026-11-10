@@ -147,5 +147,37 @@ export async function run() {
   );
   check('sanitize: nameless products fall back to baseline', malformedProducts.retail.products.length >= 1 && malformedProducts.retail.products[0].id.startsWith('prod-'));
 
+  // --------------------------------------------------- end-to-end site overrides + listing
+  const gen = await site.generateUniversalSite({
+    tenantId: TENANT_A,
+    subdomainSlug: 'herat-silk',
+    industry: 'retail',
+    prompt: 'Herat handmade silk textiles',
+    businessName: 'Herat Silk Co.',
+    whatsappPhone: '+93799112233',
+    hesabPayId: 'HP-HERAT-777',
+    publishToS3: false,
+    pages: [
+      {
+        id: 'shipping',
+        slug: 'shipping-policy',
+        title: { fa: 'ارسال', ps: 'لېږد', en: 'Shipping' },
+        content: { fa: 'ارسال به ۳۴ ولایت', ps: 'ټولو ولایتونو ته لېږد', en: 'Nationwide 34 provinces' },
+        showInNav: true,
+      },
+    ],
+  });
+  check('generateUniversalSite applies businessName, hesabPayId and custom pages',
+    gen.compiledHtml.includes('Herat Silk Co.') &&
+      gen.compiledHtml.includes('HP-HERAT-777') &&
+      gen.compiledHtml.includes('href="#page-shipping-policy"') &&
+      gen.compiledHtml.includes('Nationwide 34 provinces')
+  );
+
+  const sitesList = await site.listTenantSites(TENANT_A);
+  check('listTenantSites returns persisted tenant deployments',
+    sitesList.length === 1 && sitesList[0].subdomainSlug === 'herat-silk' && sitesList[0].pages?.[0]?.slug === 'shipping-policy'
+  );
+
   return failures();
 }

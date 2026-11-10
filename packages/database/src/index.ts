@@ -403,6 +403,25 @@ export async function getJobStatus(
   });
 }
 
+/** Lists recent background jobs for a specific tenant within its RLS context. */
+export async function listTenantJobs(
+  tenantId: string,
+  limit = 25
+): Promise<JobRow[]> {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query<JobRow>(
+      `SELECT id, tenant_id, job_type, status, payload, result, error_message,
+              attempts, max_attempts, created_at, updated_at, completed_at
+         FROM job_queue
+        WHERE tenant_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2`,
+      [tenantId, Math.min(100, Math.max(1, limit))]
+    );
+    return res.rows;
+  });
+}
+
 /**
  * Fetches a unified snapshot of the tenant's financial and AI Studio credit wallets.
  */

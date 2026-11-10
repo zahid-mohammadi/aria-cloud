@@ -180,6 +180,7 @@ export interface UniversalSiteSchema {
     prefilledMessage: LocalizedString;
   };
   pwa: PwaManifestMetadata;
+  hesabPayMerchantId?: string;
   customDomain?: string;
   generatedAt: string;
   lastUpdatedAt: string;

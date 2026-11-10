@@ -1,3 +1,4 @@
+import { withTenantContext } from '@aria-cloud/database';
 import {
   provisionCustomDomain,
   provisionMerchantSubdomain,
@@ -17,6 +18,21 @@ export interface DomainInput {
   quotaMb?: number;
 }
 
+const DOMAIN_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
+
+export async function listDomains(tenantId: string) {
+  return withTenantContext(tenantId, async (client) => {
+    const res = await client.query(
+      `SELECT id, domain_name, is_system_subdomain, ssl_status, dkim_status, auto_renew, created_at
+         FROM domains
+        WHERE tenant_id = $1
+        ORDER BY is_system_subdomain ASC, domain_name ASC`,
+      [tenantId]
+    );
+    return res.rows;
+  });
+}
+
 export async function provisionDomain(tenantId: string, input: DomainInput): Promise<unknown> {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'ariacloudservices.org';
 
@@ -30,9 +46,13 @@ export async function provisionDomain(tenantId: string, input: DomainInput): Pro
   }
 
   if (input.action === 'custom_domain') {
+    const cleanDomain = (input.customDomain || '').trim().toLowerCase();
+    if (!cleanDomain || !DOMAIN_REGEX.test(cleanDomain)) {
+      throw new ApiError(400, 'INVALID_DOMAIN', 'Enter a valid domain name (e.g., kabul-saffron.af).');
+    }
     const result = await provisionCustomDomain(
       tenantId,
-      input.customDomain || '',
+      cleanDomain,
       process.env.STALWART_MAIL_IP || '127.0.0.1'
     );
     return { ok: true, ...result };

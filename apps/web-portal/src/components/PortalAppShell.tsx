@@ -44,9 +44,30 @@ export function PortalAppShell({ children }: { children: React.ReactNode }) {
     { href: '/dashboard', label: t.nav.dashboard, icon: '📊' },
     { href: '/store-builder', label: t.nav.storefront, icon: '🛍️', badge: 'PWA' },
     { href: '/ai-studio', label: t.nav.aiStudioHeader, icon: '🤖', badge: 'AI' },
+    { href: '/domains', label: 'Domains & DNS', icon: '🌐' },
     { href: '/email', label: t.nav.email, icon: '✉️' },
     { href: '/billing', label: t.nav.billingHeader, icon: '💳', badge: 'AFN' },
+    { href: '/kyc', label: 'Verification (KYC)', icon: '🛡️' },
   ];
+
+  const searchableItems = [
+    ...navItems.map((n) => ({ ...n, keywords: `${n.label} ${n.href}`.toLowerCase() })),
+    { href: '/store-builder', label: 'Multi-Page Site Builder', icon: '📄', keywords: 'pages store site website builder pwa' },
+    { href: '/ai-studio', label: 'Voice & Image Studio', icon: '🎙️', keywords: 'voice image tts audio assistant studio jobs' },
+    { href: '/billing', label: 'Invoices & HesabPay', icon: '🧾', keywords: 'invoice hesabpay payment wallet afn usd' },
+    { href: '/domains', label: 'Custom Domain DNS', icon: '🔗', keywords: 'domain dns ssl dkim subdomain' },
+    { href: '/kyc', label: 'Tazkira & Business License', icon: '🪪', keywords: 'kyc tazkira passport compliance verification' },
+  ];
+
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const searchResults = trimmedQuery
+    ? searchableItems.filter((item) => item.keywords.includes(trimmedQuery) || item.label.toLowerCase().includes(trimmedQuery)).slice(0, 5)
+    : [];
+
+  function handleSearchNavigate(href: string) {
+    setSearchQuery('');
+    router.push(href);
+  }
 
   async function handleSignOut() {
     try {
@@ -77,14 +98,55 @@ export function PortalAppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="header-center">
-          <div className="search-bar">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t.nav.searchPlaceholder}
-            />
+          <div className="search-wrap">
+            <div className="search-bar">
+              <span className="search-icon">🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchResults.length > 0) {
+                    e.preventDefault();
+                    handleSearchNavigate(searchResults[0].href);
+                  } else if (e.key === 'Escape') {
+                    setSearchQuery('');
+                  }
+                }}
+                placeholder={t.nav.searchPlaceholder}
+                aria-label="Search portal navigation"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="search-clear"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {trimmedQuery && (
+              <div className="search-dropdown">
+                {searchResults.length === 0 ? (
+                  <div className="search-empty">No matching portal section.</div>
+                ) : (
+                  searchResults.map((res, idx) => (
+                    <button
+                      key={`${res.href}-${idx}`}
+                      type="button"
+                      className="search-option"
+                      onClick={() => handleSearchNavigate(res.href)}
+                    >
+                      <span>{res.icon}</span>
+                      <span>{res.label}</span>
+                      <span className="search-href">{res.href}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -273,6 +335,9 @@ export function PortalAppShell({ children }: { children: React.ReactNode }) {
             display: none;
           }
         }
+        .search-wrap {
+          position: relative;
+        }
         .search-bar {
           display: flex;
           align-items: center;
@@ -293,6 +358,62 @@ export function PortalAppShell({ children }: { children: React.ReactNode }) {
           color: inherit;
           font-size: 13px;
           width: 100%;
+        }
+        .search-clear {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          font-size: 12px;
+          padding: 0 2px;
+        }
+        .search-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          right: 0;
+          background: #0d1915;
+          border: 1px solid #1e3a30;
+          border-radius: 10px;
+          padding: 6px;
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+          z-index: 200;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .portal-root.light .search-dropdown {
+          background: #ffffff;
+          border-color: #cbd5e1;
+          box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+        }
+        .search-option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          text-align: start;
+          padding: 8px 10px;
+          border: none;
+          border-radius: 7px;
+          background: transparent;
+          color: inherit;
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .search-option:hover {
+          background: rgba(16, 185, 129, 0.14);
+        }
+        .search-href {
+          margin-inline-start: auto;
+          font-size: 11px;
+          color: #64748b;
+          font-family: ui-monospace, SFMono-Regular, monospace;
+        }
+        .search-empty {
+          padding: 10px 12px;
+          font-size: 12px;
+          color: #94a3b8;
         }
 
         .header-end {

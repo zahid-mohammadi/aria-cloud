@@ -1,6 +1,6 @@
 -- ====================================================================
 -- ARIA CLOUD SERVICES (ariacloudservices.org)
--- Migration: 010_job_queue.sql
+-- Migration: 011_job_queue.sql
 -- Purpose: Persistent, transactional, multi-tenant async job queue for
 --          long-running AI modalities (voice synthesis, Bedrock image
 --          generation, multi-page site compilation) and background tasks.

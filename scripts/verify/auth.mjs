@@ -178,5 +178,29 @@ export async function run() {
   const retriedStatus = await database.getJobStatus(tenantId, failJobId);
   check('failJob with retry resets status to pending', retriedStatus?.status === 'pending' && retriedStatus?.attempts === 1 && retriedStatus?.error_message === 'SMTP timeout');
 
+  const tenantJobs = await database.listTenantJobs(tenantId, 10);
+  check('listTenantJobs lists tenant queued jobs', tenantJobs.length === 2);
+
+  // Worker execution end-to-end (simulated voice modality without ELEVENLABS_API_KEY)
+  const api = await import(path.join(ROOT, 'packages/api/dist/index.js'));
+  const savedElevenLabsKey = process.env.ELEVENLABS_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
+  const { id: workerJobId } = await database.enqueueJob(
+    tenantId,
+    'generate_voice',
+    { text: 'سلام آریا کلاود' },
+    2
+  );
+  const workerOutcome = await api.processNextJob('test-worker-1');
+  if (savedElevenLabsKey !== undefined) process.env.ELEVENLABS_API_KEY = savedElevenLabsKey;
+  const processedJob = await database.getJobStatus(tenantId, workerJobId);
+  check(
+    'processNextJob executes queued job and records completed result',
+    workerOutcome.processed === true &&
+      workerOutcome.status === 'completed' &&
+      processedJob?.status === 'completed' &&
+      processedJob?.result?.mode === 'simulated'
+  );
+
   return failures();
 }

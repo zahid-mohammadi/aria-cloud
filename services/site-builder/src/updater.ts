@@ -221,7 +221,7 @@ export async function updateSiteConversational(
   const lang = detectLanguage(input.prompt);
 
   // 1. Fetch current schema from database or input
-  let siteId = input.siteId || 'mock-site-id';
+  let siteId = input.siteId || `site_${Date.now().toString(36)}`;
   let currentSchema: UniversalSiteSchema | null = input.existingSchema || null;
   let previousVersion = currentSchema ? currentSchema.version : 1;
   let customDomain: string | undefined = currentSchema?.customDomain;

@@ -6,6 +6,7 @@ import {
   createSession,
   enforceRateLimits,
   findCredentialsByEmail,
+  screenParty,
 } from '@aria-cloud/auth';
 import { SESSION_COOKIE } from '@aria-cloud/auth/constants';
 import { normalizeLocale, pool, withTenantContext } from '@aria-cloud/database';
@@ -107,13 +108,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Atomically create tenant
+    // 3. Screen names against sanctions list (fail-honest: 'unscreened' if no list configured)
+    const screening = await screenParty([businessName, fullName]);
+
+    // 4. Atomically create tenant
     const tenantId = randomUUID();
     await pool.query(
       `INSERT INTO tenants
-         (id, business_name, subdomain, owner_phone, preferred_locale, plan_tier, account_status)
-       VALUES ($1, $2, $3, $4, $5, 'starter_af', 'active')`,
-      [tenantId, businessName, subdomain, phone, locale]
+         (id, business_name, subdomain, owner_phone, preferred_locale, plan_tier, account_status, ofac_screening_status, ofac_screened_at)
+       VALUES ($1, $2, $3, $4, $5, 'starter_af', 'active', $6, now())`,
+      [tenantId, businessName, subdomain, phone, locale, screening.status]
     );
 
     // Initialize tenant wallets inside tenant RLS context

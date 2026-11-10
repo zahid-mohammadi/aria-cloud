@@ -74,7 +74,7 @@ function clinicSection(s: UniversalSiteSchema): string {
 function retailSection(s: UniversalSiteSchema): string {
   const r = s.retail;
   if (!r) return '';
-  const merchantId = 'HP-AF-' + s.subdomainSlug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  const merchantId = s.hesabPayMerchantId || ('HP-AF-' + s.subdomainSlug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
   const products = r.products
     .map((p, i) => {
       const id = p.id || `prd-${i + 1}`;
@@ -339,7 +339,7 @@ export function compileUniversalSiteHtml(schema: UniversalSiteSchema): string {
     .replace(/TEXT/g, palette.text)
     .replace(/MUTED/g, palette.muted);
 
-  const merchantId = 'HP-AF-' + schema.subdomainSlug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  const merchantId = schema.hesabPayMerchantId || ('HP-AF-' + schema.subdomainSlug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8));
 
   const sector =
     schema.industry === 'clinic' ? clinicSection(schema)

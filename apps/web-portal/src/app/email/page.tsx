@@ -172,7 +172,10 @@ export default function BusinessEmailPage() {
             Business email needs a domain. Connect one first, or build your storefront
             to get a free <span className="email-mono">.ariacloudservices.org</span> subdomain.
           </p>
-          <Link href="/store-builder" className="email-link">Build a storefront →</Link>
+          <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
+            <Link href="/domains" className="email-link">Connect a domain →</Link>
+            <Link href="/store-builder" className="email-link">Build a storefront →</Link>
+          </div>
         </div>
       ) : (
         <>

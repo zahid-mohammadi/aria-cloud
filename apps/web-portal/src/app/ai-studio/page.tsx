@@ -42,6 +42,7 @@ export default function AiStudioPage() {
   const { dir } = useTranslation();
   const [tab, setTab] = useState<'voice' | 'image' | 'assistant'>('voice');
   const [overview, setOverview] = useState<any>(null);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<Output | null>(null);
@@ -58,11 +59,71 @@ export default function AiStudioPage() {
 
   async function load() {
     try {
-      const res = await fetch('/api/studio/overview');
-      const d = await res.json();
-      if (res.ok) setOverview(d);
+      const [ovRes, jobsRes] = await Promise.all([
+        fetch('/api/studio/overview'),
+        fetch('/api/jobs'),
+      ]);
+      const d = await ovRes.json();
+      if (ovRes.ok) setOverview(d);
+      const j = await jobsRes.json();
+      if (jobsRes.ok && Array.isArray(j.jobs)) setJobs(j.jobs);
     } catch {
       /* overview optional */
+    }
+  }
+
+  async function enqueueAsyncJob(jobType: 'generate_voice' | 'generate_image', payload: Record<string, any>) {
+    setBusy(true);
+    setError(null);
+    setOutput(null);
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobType, payload }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to queue job.');
+      await load();
+
+      // Poll up to 15 times (1s intervals) so completed job result appears inline
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 800));
+        const stRes = await fetch(`/api/jobs/${d.jobId}`);
+        const st = await stRes.json();
+        const job = st.job;
+        if (job?.status === 'completed' && job.result) {
+          if (jobType === 'generate_voice') {
+            setOutput({
+              type: 'voice',
+              audioBase64: job.result.audioBase64,
+              credits: job.result.creditsDeducted,
+              remaining: job.result.remainingCredits,
+              latencyMs: job.result.latencyMs,
+              simulated: job.result.mode !== 'live',
+            });
+          } else {
+            setOutput({
+              type: 'image',
+              imageDataUrl: job.result.imageDataUrl,
+              credits: job.result.creditsDeducted,
+              remaining: job.result.remainingCredits,
+              latencyMs: job.result.latencyMs,
+              simulated: job.result.mode !== 'live',
+            });
+          }
+          await load();
+          return;
+        }
+        if (job?.status === 'failed') {
+          throw new Error(job.error_message || 'Async job failed.');
+        }
+      }
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -172,7 +233,17 @@ export default function AiStudioPage() {
               <label className="studio-field">Script
                 <textarea rows={4} value={voiceText} onChange={(e) => setVoiceText(e.target.value)} />
               </label>
-              <button className="studio-btn" onClick={synthesize} disabled={busy}>{busy ? 'Synthesizing…' : 'Generate voice'}</button>
+              <div className="studio-btn-row">
+                <button className="studio-btn" onClick={synthesize} disabled={busy}>{busy ? 'Synthesizing…' : 'Generate voice'}</button>
+                <button
+                  type="button"
+                  className="studio-btn secondary"
+                  disabled={busy}
+                  onClick={() => enqueueAsyncJob('generate_voice', { text: voiceText, voiceId, modelId: voiceModel })}
+                >
+                  Queue background job
+                </button>
+              </div>
             </>
           )}
 
@@ -187,7 +258,20 @@ export default function AiStudioPage() {
               <label className="studio-field">Prompt
                 <textarea rows={3} value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} />
               </label>
-              <button className="studio-btn" onClick={generateImage} disabled={busy}>{busy ? 'Generating…' : 'Generate image'}</button>
+              <div className="studio-btn-row">
+                <button className="studio-btn" onClick={generateImage} disabled={busy}>{busy ? 'Generating…' : 'Generate image'}</button>
+                <button
+                  type="button"
+                  className="studio-btn secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    const r = RESOLUTIONS.find((x) => x.id === resolution)!;
+                    enqueueAsyncJob('generate_image', { prompt: imagePrompt, width: r.w, height: r.h });
+                  }}
+                >
+                  Queue background job
+                </button>
+              </div>
             </>
           )}
 
@@ -244,10 +328,31 @@ export default function AiStudioPage() {
               </tbody>
             </table>
           )}
+
+          <h2 style={{ marginTop: 22 }}>Async Job Queue ({jobs.length})</h2>
+          {jobs.length === 0 ? (
+            <p className="studio-muted">No background jobs queued yet.</p>
+          ) : (
+            <table className="studio-table">
+              <thead><tr><th>Job</th><th>Status</th><th>Attempts</th><th>Created</th></tr></thead>
+              <tbody>
+                {jobs.slice(0, 6).map((j: any) => (
+                  <tr key={j.id}>
+                    <td className="studio-mono">{j.job_type}</td>
+                    <td><span className={`studio-badge ${j.status === 'completed' ? 'blue' : j.status === 'failed' ? 'warn' : ''}`}>{j.status}</span></td>
+                    <td>{j.attempts}/{j.max_attempts}</td>
+                    <td>{fmt(j.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
       </div>
 
       <style>{`
+        .studio-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .studio-btn.secondary { background: #fff; color: #16191f; border: 1px solid #d4d9e0; }
         .studio { max-width: 1100px; margin: 0 auto; padding: 24px; color: #16191f; }
         .studio-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; }
         .studio-head h1 { margin: 0; font-size: 22px; }
