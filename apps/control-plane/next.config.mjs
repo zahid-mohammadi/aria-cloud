@@ -8,7 +8,9 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      // Dev mode requires unsafe-eval for Next.js HMR/source-maps; production stays strict.
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''}`,
+
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data: https:",
       "img-src 'self' data: https:",
